@@ -69,6 +69,47 @@ button {
   padding: 18px;
 }
 
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(25, 34, 31, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.drop-overlay[hidden] {
+  display: none;
+}
+
+.drop-card {
+  max-width: 460px;
+  padding: 28px 30px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 250, 241, 0.96);
+  box-shadow: 0 28px 60px rgba(31, 28, 21, 0.22);
+  text-align: center;
+}
+
+.drop-card h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+}
+
+.drop-card p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.drop-skip-button {
+  margin-top: 18px;
+}
+
 .topbar,
 .status-strip,
 .panel {

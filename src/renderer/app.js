@@ -13,6 +13,8 @@ const elements = {
   readyTimeoutInput: document.getElementById("ready-timeout-input"),
   startCommandInput: document.getElementById("start-command-input"),
   configPanel: document.getElementById("config-panel"),
+  dropOverlay: document.getElementById("drop-overlay"),
+  skipOverlayButton: document.getElementById("skip-overlay-button"),
   questionList: document.getElementById("question-list"),
   questionForm: document.getElementById("question-form"),
   questionTitleInput: document.getElementById("question-title-input"),
@@ -51,6 +53,8 @@ const state = {
   currentPrairieLearnTitle: "",
   prairieLearnReady: false
 };
+
+let dragDepth = 0;
 
 function createEmptySession(pdfPath) {
   return {
@@ -92,6 +96,32 @@ function saveSession() {
 
   state.session.currentPdfPage = state.currentPdfPage;
   localStorage.setItem(getSessionKey(state.pdf.path), JSON.stringify(state.session));
+}
+
+function isPdfFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const name = (file.name || "").toLowerCase();
+  return file.type === "application/pdf" || name.endsWith(".pdf");
+}
+
+function hasDraggedFiles(event) {
+  return Array.from(event.dataTransfer?.types || []).includes("Files");
+}
+
+function showDropOverlay() {
+  elements.dropOverlay.hidden = false;
+}
+
+function hideDropOverlay() {
+  elements.dropOverlay.hidden = true;
+}
+
+function dismissDropOverlay() {
+  dragDepth = 0;
+  hideDropOverlay();
 }
 
 function getCurrentQuestion() {
@@ -428,6 +458,14 @@ async function choosePdf() {
     return;
   }
 
+  await loadPdfSelection(selected);
+}
+
+async function loadPdfSelection(selected) {
+  if (!selected?.path) {
+    return;
+  }
+
   state.pdf = selected;
   state.session = loadSession(selected.path);
   state.currentPdfPage = Number(state.session.currentPdfPage) || 1;
@@ -439,6 +477,28 @@ async function choosePdf() {
   renderAll();
   saveSession();
   await startPrairieLearn();
+}
+
+function getDroppedPdfFile(event) {
+  const files = Array.from(event.dataTransfer?.files || []);
+  return files.find(isPdfFile) || null;
+}
+
+async function getDroppedPdfSelection(event) {
+  const file = getDroppedPdfFile(event);
+  if (!file) {
+    return null;
+  }
+
+  const resolvedPath = window.reviewApi.getPathForFile(file);
+  if (!resolvedPath) {
+    return null;
+  }
+
+  return {
+    path: resolvedPath,
+    name: file.name || resolvedPath.split("/").pop()
+  };
 }
 
 function bindQuestionInputs() {
@@ -551,6 +611,52 @@ function bindEvents() {
     elements.webview.reload();
   });
 
+  window.addEventListener("dragenter", (event) => {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    dragDepth += 1;
+    showDropOverlay();
+  });
+
+  window.addEventListener("dragover", (event) => {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    showDropOverlay();
+  });
+
+  window.addEventListener("dragleave", (event) => {
+    if (!event.dataTransfer?.types?.includes("Files")) {
+      return;
+    }
+
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
+      hideDropOverlay();
+    }
+  });
+
+  window.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    dismissDropOverlay();
+
+    const selected = await getDroppedPdfSelection(event);
+    if (!selected?.path) {
+      setPrairieLearnStatus("Drop a single PDF file to load it.");
+      return;
+    }
+
+    await loadPdfSelection(selected);
+  });
+
+  elements.skipOverlayButton.addEventListener("click", dismissDropOverlay);
+
   bindQuestionInputs();
   bindWebviewEvents();
   window.addEventListener("beforeunload", saveSession);
@@ -560,7 +666,6 @@ async function init() {
   bindEvents();
   state.config = await window.reviewApi.getConfig();
   renderAll();
-  await choosePdf();
 }
 
 init();

@@ -12,6 +12,15 @@
   </head>
   <body>
     <div class="app-shell">
+      <div id="drop-overlay" class="drop-overlay" hidden>
+        <div class="drop-card">
+          <p class="eyebrow">Drop PDF</p>
+          <h2>Load Assessment PDF</h2>
+          <p>Drop a single PDF anywhere in the window to open it and restore its saved review session.</p>
+          <button id="skip-overlay-button" class="button drop-skip-button" type="button">Skip for now</button>
+        </div>
+      </div>
+
       <header class="topbar">
         <div class="brand">
           <p class="eyebrow">Assessment Review</p>
@@ -167,4 +176,3 @@
     <script src="./app.js"></script>
   </body>
 </html>
-
