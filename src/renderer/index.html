@@ -76,12 +76,14 @@
             </label>
             <p class="helper-text">
               The structured editor generates the Docker command for you. Only the host path mounted to `/course`
-              needs to be chosen here.
+              needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
             </p>
-            <label>
-              <span>Generated Command</span>
-              <textarea id="generated-command-preview" rows="3" readonly></textarea>
-            </label>
+            <details id="generated-command-accordion" class="generated-command-accordion">
+              <summary>Generated Command</summary>
+              <label>
+                <textarea id="generated-command-preview" rows="9" readonly></textarea>
+              </label>
+            </details>
           </div>
 
           <label id="custom-command-editor" class="full-width command-editor">

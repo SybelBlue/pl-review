@@ -275,6 +275,29 @@ button {
   cursor: not-allowed;
 }
 
+.generated-command-accordion {
+  border: 1px solid rgba(77, 61, 44, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.generated-command-accordion summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.generated-command-accordion label {
+  padding: 0 10px 10px;
+}
+
+#generated-command-preview {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  line-height: 1.35;
+  white-space: pre;
+}
+
 .inline-input-group {
   display: flex;
   gap: 10px;

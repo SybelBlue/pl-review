@@ -4,6 +4,7 @@ const { pathToFileURL } = require("node:url");
 contextBridge.exposeInMainWorld("reviewApi", {
   selectPdf: () => ipcRenderer.invoke("select-pdf"),
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
+  ensureJobsDirectory: (existingPath) => ipcRenderer.invoke("ensure-jobs-directory", existingPath),
   getConfig: () => ipcRenderer.invoke("get-config"),
   saveConfig: (config) => ipcRenderer.invoke("save-config", config),
   startPrairieLearn: (config) => ipcRenderer.invoke("start-prairielearn", config),

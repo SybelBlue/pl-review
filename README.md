@@ -40,12 +40,13 @@ In dev mode, saving files under `src/renderer/` reloads the window, while saving
 2. Open the `PrairieLearn Connection` panel.
 3. Set `Base URL` to the PrairieLearn URL you expect locally, such as `http://127.0.0.1:3000`.
 4. Leave the connection mode on `Structured` and choose the local course directory to mount as `/course`.
-5. If your container needs something different, switch to `Custom` and paste the full Docker start command instead.
+5. The app automatically creates a temporary `pl_ag_jobs` directory and maps it to `/jobs`.
+6. If your container needs something different, switch to `Custom` and paste the full Docker start command instead.
 
 Example:
 
 ```bash
-docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn
+docker run --rm -p 3000:3000 -v /path/to/course:/course -v /tmp/pl_ag_jobs-abc123:/jobs -e HOST_JOBS_DIR=/tmp/pl_ag_jobs-abc123 -v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:172.17.0.1 prairielearn/prairielearn:latest
 ```
 
 The app does not modify PrairieLearn itself. Instead, it keeps a local question list where each item stores:

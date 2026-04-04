@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
 const { promisify } = require("node:util");
 const { exec } = require("node:child_process");
@@ -11,6 +12,7 @@ const DEFAULT_CONFIG = {
   baseUrl: "http://127.0.0.1:3000",
   commandMode: "structured",
   courseDirectory: "",
+  jobsDirectory: "",
   customStartCommand: "",
   startCommand: "",
   readyTimeoutMs: 30000
@@ -87,6 +89,17 @@ async function selectDirectory() {
   }
 
   return result.filePaths[0];
+}
+
+async function ensureJobsDirectory(existingPath = "") {
+  const preferredPath = String(existingPath || "").trim();
+  if (preferredPath) {
+    await fs.mkdir(preferredPath, { recursive: true });
+    return preferredPath;
+  }
+
+  const tempPrefix = path.join(os.tmpdir(), "pl_ag_jobs-");
+  return fs.mkdtemp(tempPrefix);
 }
 
 function serializeCommandError(error) {
@@ -265,6 +278,7 @@ function stopDevWatchers() {
 
 ipcMain.handle("select-pdf", async () => selectPdfFile());
 ipcMain.handle("select-directory", async () => selectDirectory());
+ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJobsDirectory(existingPath));
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));
 ipcMain.handle("start-prairielearn", async (_event, config) => startPrairieLearn(config));

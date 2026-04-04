@@ -17,6 +17,7 @@ const elements = {
   customCommandEditor: document.getElementById("custom-command-editor"),
   courseDirectoryInput: document.getElementById("course-directory-input"),
   chooseCourseDirectoryButton: document.getElementById("choose-course-directory-button"),
+  generatedCommandAccordion: document.getElementById("generated-command-accordion"),
   generatedCommandPreview: document.getElementById("generated-command-preview"),
   startCommandInput: document.getElementById("start-command-input"),
   configPanel: document.getElementById("config-panel"),
@@ -52,6 +53,7 @@ const state = {
     baseUrl: "http://127.0.0.1:3000",
     commandMode: "structured",
     courseDirectory: "",
+    jobsDirectory: "",
     customStartCommand: "",
     startCommand: "",
     readyTimeoutMs: 30000
@@ -163,34 +165,55 @@ function getCommandModeFromForm() {
   return elements.commandModeCustom.checked ? "custom" : "structured";
 }
 
-function buildStructuredCommand(config) {
+function buildStructuredCommandParts(config) {
   const courseDirectory = (config.courseDirectory || "").trim();
+  const jobsDirectory = (config.jobsDirectory || "").trim();
   if (!courseDirectory) {
-    return "";
+    return [];
   }
 
+  const jobsDirectoryValue = jobsDirectory || "<auto-temp-pl_ag_jobs>";
+
   return [
-    "docker run -d --rm",
-    "--name pl-review",
+    "docker run --rm",
     "-p 3000:3000",
-    `-v ${shellQuote(`${courseDirectory}:/course`)}`,
-    "prairielearn/prairielearn"
-  ].join(" ");
+    `-v ${shellQuote(courseDirectory)}:/course`,
+    `-v ${shellQuote(jobsDirectoryValue)}:/jobs`,
+    `-e HOST_JOBS_DIR=${shellQuote(jobsDirectoryValue)}`,
+    "-v /var/run/docker.sock:/var/run/docker.sock",
+    "--add-host=host.docker.internal:172.17.0.1",
+    "prairielearn/prairielearn:latest"
+  ];
+}
+
+function buildStructuredCommand(config) {
+  const parts = buildStructuredCommandParts(config);
+  return parts.length > 0 ? parts.join(" ") : "";
+}
+
+function formatCommandPreview(parts) {
+  if (!parts || parts.length === 0) {
+    return "Choose a course directory to generate the Docker command.";
+  }
+
+  return parts.map((part, index) => (index < parts.length - 1 ? `${part} \\` : part)).join("\n");
 }
 
 function updateCommandEditorState() {
   const mode = getCommandModeFromForm();
-  const generatedCommand = buildStructuredCommand({
-    courseDirectory: elements.courseDirectoryInput.value
+  const generatedCommandParts = buildStructuredCommandParts({
+    courseDirectory: elements.courseDirectoryInput.value,
+    jobsDirectory: state.config.jobsDirectory
   });
 
-  elements.generatedCommandPreview.value = generatedCommand || "Choose a course directory to generate the Docker command.";
+  elements.generatedCommandPreview.value = formatCommandPreview(generatedCommandParts);
   const usingStructured = mode === "structured";
 
   elements.structuredCommandEditor.classList.toggle("is-inactive", !usingStructured);
   elements.customCommandEditor.classList.toggle("is-inactive", usingStructured);
   elements.courseDirectoryInput.disabled = !usingStructured;
   elements.chooseCourseDirectoryButton.disabled = !usingStructured;
+  elements.generatedCommandAccordion.classList.toggle("is-inactive", !usingStructured);
   elements.generatedCommandPreview.disabled = !usingStructured;
   elements.startCommandInput.disabled = usingStructured;
 }
@@ -218,18 +241,37 @@ function renderConfig() {
 function getConfigFromForm() {
   const commandMode = getCommandModeFromForm();
   const courseDirectory = elements.courseDirectoryInput.value.trim();
+  const jobsDirectory = (state.config.jobsDirectory || "").trim();
   const customStartCommand = elements.startCommandInput.value.trim();
   const startCommand =
-    commandMode === "custom" ? customStartCommand : buildStructuredCommand({ courseDirectory });
+    commandMode === "custom" ? customStartCommand : buildStructuredCommand({ courseDirectory, jobsDirectory });
 
   return {
     baseUrl: elements.baseUrlInput.value.trim() || "http://127.0.0.1:3000",
     commandMode,
     courseDirectory,
+    jobsDirectory,
     customStartCommand,
     readyTimeoutMs: Number(elements.readyTimeoutInput.value) || 30000,
     startCommand
   };
+}
+
+async function ensureStructuredJobsDirectory(config) {
+  if (config.commandMode !== "structured") {
+    return config;
+  }
+
+  const jobsDirectory = await window.reviewApi.ensureJobsDirectory(config.jobsDirectory);
+  const nextConfig = {
+    ...config,
+    jobsDirectory
+  };
+
+  nextConfig.startCommand = buildStructuredCommand(nextConfig);
+  state.config.jobsDirectory = jobsDirectory;
+  updateCommandEditorState();
+  return nextConfig;
 }
 
 function renderQuestionList() {
@@ -495,6 +537,7 @@ function setPdfPage(page) {
 
 async function startPrairieLearn() {
   state.config = getConfigFromForm();
+  state.config = await ensureStructuredJobsDirectory(state.config);
   setPrairieLearnStatus("Starting PrairieLearn...");
   const result = await window.reviewApi.startPrairieLearn(state.config);
   state.config = result.config || state.config;
@@ -517,6 +560,7 @@ async function startPrairieLearn() {
 
 async function saveConfig() {
   state.config = getConfigFromForm();
+  state.config = await ensureStructuredJobsDirectory(state.config);
   state.config = await window.reviewApi.saveConfig(state.config);
   renderConfig();
   setPrairieLearnStatus("Connection saved");
@@ -748,6 +792,7 @@ function bindEvents() {
 async function init() {
   bindEvents();
   state.config = await window.reviewApi.getConfig();
+  state.config = await ensureStructuredJobsDirectory(state.config);
   renderAll();
 }
 
