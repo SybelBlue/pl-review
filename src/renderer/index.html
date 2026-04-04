@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src 'self' file: http: https:; connect-src 'self' http: https:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PrairieLearn Review Desktop</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <p class="eyebrow">Assessment Review</p>
+          <h1>PrairieLearn Review Desktop</h1>
+        </div>
+        <div class="toolbar-group">
+          <button id="choose-pdf-button" class="button button-primary">Choose PDF</button>
+          <button id="restart-pl-button" class="button">Start PrairieLearn</button>
+          <button id="open-browser-button" class="button">Open in Browser</button>
+        </div>
+      </header>
+
+      <section class="status-strip">
+        <div>
+          <span class="status-label">PDF</span>
+          <strong id="pdf-name">No file selected</strong>
+        </div>
+        <div>
+          <span class="status-label">PrairieLearn</span>
+          <strong id="pl-status">Waiting for configuration</strong>
+        </div>
+        <div>
+          <span class="status-label">Current URL</span>
+          <strong id="current-url">Not loaded</strong>
+        </div>
+      </section>
+
+      <details id="config-panel" class="panel config-panel">
+        <summary>PrairieLearn Connection</summary>
+        <div class="config-grid">
+          <label>
+            <span>Base URL</span>
+            <input id="base-url-input" type="url" placeholder="http://127.0.0.1:3000" />
+          </label>
+          <label>
+            <span>Ready Timeout (ms)</span>
+            <input id="ready-timeout-input" type="number" min="5000" step="1000" />
+          </label>
+          <label class="full-width">
+            <span>Docker Start Command</span>
+            <textarea
+              id="start-command-input"
+              rows="3"
+              placeholder="docker run -d --rm --name pl-review -p 3000:3000 your-prairielearn-image"
+            ></textarea>
+          </label>
+        </div>
+        <div class="toolbar-group">
+          <button id="save-config-button" class="button">Save Connection</button>
+          <button id="start-configured-button" class="button button-primary">Save + Start</button>
+        </div>
+      </details>
+
+      <main class="workspace">
+        <aside class="sidebar panel">
+          <div class="sidebar-header">
+            <div>
+              <p class="eyebrow">Question Map</p>
+              <h2>Review Items</h2>
+            </div>
+            <div class="toolbar-group compact">
+              <button id="previous-question-button" class="button">Prev</button>
+              <button id="next-question-button" class="button">Next</button>
+            </div>
+          </div>
+
+          <div class="toolbar-group sidebar-actions">
+            <button id="new-question-button" class="button button-primary">New Question</button>
+            <button id="capture-view-button" class="button">Capture Current View</button>
+            <button id="delete-question-button" class="button button-danger">Delete</button>
+          </div>
+
+          <div id="question-list" class="question-list"></div>
+
+          <form id="question-form" class="question-form">
+            <label>
+              <span>Label</span>
+              <input id="question-title-input" type="text" placeholder="Question 1" />
+            </label>
+            <label>
+              <span>PrairieLearn Path or URL</span>
+              <input id="question-path-input" type="text" placeholder="/course_instance/..." />
+            </label>
+            <label>
+              <span>PDF Page</span>
+              <input id="question-pdf-page-input" type="number" min="1" step="1" />
+            </label>
+            <label>
+              <span>Tags</span>
+              <input id="question-tags-input" type="text" placeholder="translation, rubric" />
+            </label>
+            <label class="checkbox-row">
+              <input id="question-flagged-input" type="checkbox" />
+              <span>Flag for follow-up</span>
+            </label>
+            <label>
+              <span>Notes</span>
+              <textarea id="question-notes-input" rows="6" placeholder="Observations, issues, grading notes..."></textarea>
+            </label>
+          </form>
+        </aside>
+
+        <section class="viewer-column panel">
+          <div class="pane-header">
+            <div>
+              <p class="eyebrow">Assessment PDF</p>
+              <h2>PDF Viewer</h2>
+            </div>
+            <div class="toolbar-group compact">
+              <button id="previous-page-button" class="button">Prev Page</button>
+              <input id="pdf-page-input" class="page-input" type="number" min="1" step="1" value="1" />
+              <button id="next-page-button" class="button">Next Page</button>
+              <button id="apply-page-button" class="button">Use For Question</button>
+            </div>
+          </div>
+          <div class="pane-frame">
+            <iframe id="pdf-frame" title="Assessment PDF"></iframe>
+          </div>
+        </section>
+
+        <section class="viewer-column panel">
+          <div class="pane-header">
+            <div>
+              <p class="eyebrow">PrairieLearn</p>
+              <h2>Embedded Review</h2>
+            </div>
+            <div class="toolbar-group compact">
+              <button id="webview-back-button" class="button">Back</button>
+              <button id="webview-forward-button" class="button">Forward</button>
+              <button id="webview-reload-button" class="button">Reload</button>
+            </div>
+          </div>
+          <div class="pane-frame webview-frame">
+            <webview
+              id="prairielearn-view"
+              partition="persist:prairielearn-review"
+              src="about:blank"
+              webpreferences="contextIsolation=yes"
+              allowpopups="false"
+            ></webview>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="question-item-template">
+      <button class="question-item" type="button">
+        <span class="question-item-title"></span>
+        <span class="question-item-meta"></span>
+      </button>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
+

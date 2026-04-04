@@ -1,0 +1,376 @@
+:root {
+  --bg: #f5efe4;
+  --paper: rgba(255, 251, 245, 0.92);
+  --paper-strong: #fffaf1;
+  --ink: #2b241e;
+  --muted: #78685a;
+  --line: rgba(77, 61, 44, 0.14);
+  --accent: #146356;
+  --accent-strong: #0f4d43;
+  --danger: #a14d39;
+  --shadow: 0 18px 40px rgba(59, 42, 25, 0.12);
+  --radius: 18px;
+  --font-ui: "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Iowan Old Style", "Georgia", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(20, 99, 86, 0.12), transparent 28%),
+    radial-gradient(circle at right center, rgba(161, 77, 57, 0.08), transparent 24%),
+    linear-gradient(180deg, #f8f2e8 0%, #efe6d7 100%);
+  font-family: var(--font-ui);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+button,
+input,
+textarea,
+summary {
+  font: inherit;
+}
+
+button,
+input,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.topbar,
+.status-strip,
+.panel {
+  position: relative;
+  z-index: 1;
+}
+
+.topbar,
+.status-strip,
+.panel {
+  background: var(--paper);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  border-radius: 24px;
+}
+
+.brand h1,
+.sidebar-header h2,
+.pane-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 600;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar-group.compact {
+  gap: 8px;
+}
+
+.button {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 99, 86, 0.28);
+}
+
+.button-primary {
+  background: linear-gradient(180deg, #166f61 0%, #11554a 100%);
+  color: #f7f3eb;
+  border-color: transparent;
+}
+
+.button-danger {
+  color: #7b2d1d;
+  border-color: rgba(161, 77, 57, 0.3);
+}
+
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 18px;
+}
+
+.status-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.status-strip strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.config-panel {
+  padding: 16px 18px 18px;
+  border-radius: var(--radius);
+}
+
+.config-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.config-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.92rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+
+.sidebar,
+.viewer-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 26px;
+  overflow: hidden;
+}
+
+.sidebar {
+  padding: 18px;
+  gap: 14px;
+}
+
+.sidebar-header,
+.pane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.sidebar-actions {
+  justify-content: space-between;
+}
+
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 160px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.question-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.question-item:hover,
+.question-item.is-active {
+  border-color: rgba(20, 99, 86, 0.4);
+  background: rgba(232, 247, 243, 0.96);
+}
+
+.question-item-title {
+  font-weight: 600;
+}
+
+.question-item-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.question-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.viewer-column {
+  padding: 18px;
+  gap: 14px;
+}
+
+.pane-frame {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid rgba(77, 61, 44, 0.12);
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+#pdf-frame,
+#prairielearn-view {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
+.webview-frame {
+  background: #f9f8f4;
+}
+
+.page-input {
+  width: 76px;
+  text-align: center;
+}
+
+@media (max-width: 1480px) {
+  .workspace {
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-areas:
+      "sidebar sidebar"
+      "pdf pl";
+  }
+
+  .sidebar {
+    grid-area: sidebar;
+  }
+
+  .workspace > section:first-of-type {
+    grid-area: pdf;
+  }
+
+  .workspace > section:last-of-type {
+    grid-area: pl;
+  }
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .topbar,
+  .pane-header,
+  .sidebar-header,
+  .status-strip {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .status-strip,
+  .config-grid,
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .viewer-column {
+    min-height: 420px;
+  }
+}
