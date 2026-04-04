@@ -35,7 +35,11 @@ function normalizeConfig(config = {}) {
   return {
     ...DEFAULT_CONFIG,
     ...config,
-    commandMode: hasLegacyStartCommand ? "custom" : config.commandMode || DEFAULT_CONFIG.commandMode,
+    commandMode: hasLegacyStartCommand
+      ? "custom"
+      : ["structured", "custom", "reconnect"].includes(config.commandMode)
+        ? config.commandMode
+        : DEFAULT_CONFIG.commandMode,
     customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || ""
   };
 }
@@ -287,6 +291,74 @@ function runShellCommandWithStreaming(command, runState) {
   });
 }
 
+function runShellCommand(command) {
+  return new Promise((resolve) => {
+    const stdoutChunks = [];
+    const stderrChunks = [];
+
+    const child = spawn(command, {
+      shell: "/bin/zsh"
+    });
+
+    child.stdout.on("data", (data) => {
+      stdoutChunks.push(data.toString());
+    });
+
+    child.stderr.on("data", (data) => {
+      stderrChunks.push(data.toString());
+    });
+
+    child.on("error", (error) => {
+      resolve({
+        ok: false,
+        stdout: stdoutChunks.join(""),
+        stderr: `${stderrChunks.join("")}${error.message}\n`,
+        error: error.message
+      });
+    });
+
+    child.on("close", (code) => {
+      resolve({
+        ok: code === 0,
+        stdout: stdoutChunks.join(""),
+        stderr: stderrChunks.join(""),
+        error: code === 0 ? "" : `Command exited with code ${code}.`
+      });
+    });
+  });
+}
+
+function parsePrairieLearnContainers(psOutput) {
+  return psOutput
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [id, image, ports, status, names] = line.split("\t");
+      return { id, image, ports, status, names };
+    })
+    .filter((container) => (container.image || "").toLowerCase().includes("prairielearn"));
+}
+
+async function listPrairieLearnContainers() {
+  const result = await runShellCommand(
+    'docker ps --format "{{.ID}}\t{{.Image}}\t{{.Ports}}\t{{.Status}}\t{{.Names}}"'
+  );
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error || result.stderr || "Could not list running Docker containers.",
+      containers: []
+    };
+  }
+
+  return {
+    ok: true,
+    containers: parsePrairieLearnContainers(result.stdout)
+  };
+}
+
 async function stopRunningPrairieLearnContainers(baseUrl, runState) {
   if (runState.cancelled) {
     return;
@@ -498,6 +570,76 @@ async function restartPrairieLearn(config) {
   return runPrairieLearnStart(normalized, { resetLog: false });
 }
 
+async function reconnectPrairieLearn(config) {
+  if (activeStartRun) {
+    return {
+      ok: false,
+      config,
+      error: "A PrairieLearn start operation is already running."
+    };
+  }
+
+  const normalized = await writeConfig(config);
+  sendDockerOutput({ type: "reset" });
+  sendDockerOutput({ type: "chunk", stream: "info", text: "Checking for running PrairieLearn containers...\n" });
+
+  const listed = await listPrairieLearnContainers();
+  if (!listed.ok) {
+    sendDockerOutput({ type: "chunk", stream: "stderr", text: `${listed.error}\n` });
+    return {
+      ok: false,
+      config: normalized,
+      error: listed.error
+    };
+  }
+
+  if (listed.containers.length === 0) {
+    const message = "No running PrairieLearn containers were found.";
+    sendDockerOutput({ type: "chunk", stream: "stderr", text: `${message}\n` });
+    return {
+      ok: false,
+      config: normalized,
+      error: message
+    };
+  }
+
+  listed.containers.forEach((container) => {
+    sendDockerOutput({
+      type: "chunk",
+      stream: "info",
+      text: `Found ${container.id} (${container.image}) on ${container.ports || "no published ports"}.\n`
+    });
+  });
+
+  const runState = {
+    cancelled: false,
+    child: null
+  };
+  activeStartRun = runState;
+  sendDockerOutput({
+    type: "chunk",
+    stream: "info",
+    text: `Waiting for PrairieLearn at ${normalized.baseUrl}...\n`
+  });
+
+  const ready = await waitForPrairieLearn(normalized.baseUrl, runState);
+  activeStartRun = null;
+  if (ready.ok) {
+    sendDockerOutput({ type: "chunk", stream: "info", text: "PrairieLearn is reachable.\n" });
+    return {
+      ok: true,
+      config: normalized
+    };
+  }
+
+  sendDockerOutput({ type: "chunk", stream: "stderr", text: `${ready.error}\n` });
+  return {
+    ok: false,
+    config: normalized,
+    error: ready.error
+  };
+}
+
 async function stopPrairieLearnStart() {
   if (!activeStartRun) {
     return { ok: false, error: "No PrairieLearn start operation is running." };
@@ -515,6 +657,52 @@ async function stopPrairieLearnStart() {
   }
 
   return { ok: true };
+}
+
+async function stopConnectedPrairieLearn(baseUrl) {
+  const port = getPortFromBaseUrl(baseUrl || "http://127.0.0.1:3000");
+  sendDockerOutput({
+    type: "chunk",
+    stream: "info",
+    text: `Stopping connected PrairieLearn container(s) on host port ${port}...\n`
+  });
+
+  const listResult = await runShellCommand(
+    `docker ps --filter publish=${port} --format "{{.ID}} {{.Image}} {{.Names}}"`
+  );
+
+  if (!listResult.ok) {
+    const errorMessage = listResult.error || listResult.stderr || "Could not list running containers.";
+    sendDockerOutput({ type: "chunk", stream: "stderr", text: `${errorMessage}\n` });
+    return { ok: false, error: errorMessage };
+  }
+
+  const ids = listResult.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.split(/\s+/)[0])
+    .filter(Boolean);
+
+  if (ids.length === 0) {
+    const message = "No running container found on the configured PrairieLearn port.";
+    sendDockerOutput({ type: "chunk", stream: "info", text: `${message}\n` });
+    return { ok: false, error: message };
+  }
+
+  const stopResult = await runShellCommand(`docker stop ${ids.join(" ")}`);
+  if (!stopResult.ok) {
+    const errorMessage = stopResult.error || stopResult.stderr || "Failed to stop PrairieLearn container.";
+    sendDockerOutput({ type: "chunk", stream: "stderr", text: `${errorMessage}\n` });
+    return { ok: false, error: errorMessage };
+  }
+
+  const stopped = stopResult.stdout.trim();
+  if (stopped) {
+    sendDockerOutput({ type: "chunk", stream: "info", text: `${stopped}\n` });
+  }
+  sendDockerOutput({ type: "chunk", stream: "info", text: "Connected PrairieLearn container stopped.\n" });
+  return { ok: true, stoppedIds: ids };
 }
 
 function createWindow() {
@@ -599,11 +787,14 @@ function stopDevWatchers() {
 ipcMain.handle("select-pdf", async () => selectPdfFile());
 ipcMain.handle("select-directory", async () => selectDirectory());
 ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJobsDirectory(existingPath));
+ipcMain.handle("list-prairielearn-containers", async () => listPrairieLearnContainers());
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));
 ipcMain.handle("start-prairielearn", async (_event, config) => startPrairieLearn(config));
 ipcMain.handle("restart-prairielearn", async (_event, config) => restartPrairieLearn(config));
+ipcMain.handle("reconnect-prairielearn", async (_event, config) => reconnectPrairieLearn(config));
 ipcMain.handle("stop-prairielearn-start", async () => stopPrairieLearnStart());
+ipcMain.handle("stop-connected-prairielearn", async (_event, baseUrl) => stopConnectedPrairieLearn(baseUrl));
 ipcMain.handle("open-external", async (_event, url) => {
   if (url) {
     await shell.openExternal(url);

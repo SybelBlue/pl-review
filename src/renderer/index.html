@@ -64,38 +64,61 @@
                 <span>Generated</span>
               </label>
             </div>
-            <label>
-              <span>Course Directory For `/course`</span>
-              <div class="inline-input-group">
-                <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
-                <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
-              </div>
-            </label>
-            <p class="helper-text">
-              The structured editor generates the Docker command for you. Only the host path mounted to `/course`
-              needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
-            </p>
-            <details id="generated-command-accordion" class="generated-command-accordion">
-              <summary>Generated Command</summary>
+            <div class="command-editor-body">
               <label>
-                <textarea id="generated-command-preview" rows="9" readonly></textarea>
+                <span>Course Directory For `/course`</span>
+                <div class="inline-input-group">
+                  <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
+                  <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
+                </div>
               </label>
-            </details>
+              <p class="helper-text">
+                The structured editor generates the Docker command for you. Only the host path mounted to `/course`
+                needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
+              </p>
+              <details id="generated-command-accordion" class="generated-command-accordion">
+                <summary>Generated Command</summary>
+                <label>
+                  <textarea id="generated-command-preview" rows="9" readonly></textarea>
+                </label>
+              </details>
+            </div>
           </div>
 
-          <label id="custom-command-editor" class="full-width command-editor">
-            <span class="command-editor-header">
-              <span class="command-mode-inline">
+          <div id="custom-command-editor" class="full-width command-editor">
+            <div class="command-editor-header">
+              <label class="command-mode-inline">
                 <input id="command-mode-custom" type="radio" name="command-mode" value="custom" />
                 <span>Custom</span>
-              </span>
-            </span>
-            <textarea
-              id="start-command-input"
-              rows="3"
-              placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
-            ></textarea>
-          </label>
+              </label>
+            </div>
+            <div class="command-editor-body">
+              <textarea
+                id="start-command-input"
+                rows="3"
+                placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
+              ></textarea>
+            </div>
+          </div>
+
+          <div id="reconnect-command-editor" class="full-width command-editor">
+            <div class="command-editor-header">
+              <label class="command-mode-inline">
+                <input id="command-mode-reconnect" type="radio" name="command-mode" value="reconnect" />
+                <span>Reconnect</span>
+              </label>
+            </div>
+            <div class="command-editor-body">
+              <p class="helper-text">
+                Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
+                Docker and attaches if one is reachable at the configured Base URL.
+              </p>
+              <div class="toolbar-group compact">
+                <button id="refresh-running-containers-button" class="button" type="button">Refresh Running Containers</button>
+              </div>
+              <pre id="running-containers-preview">No running PrairieLearn containers detected yet.</pre>
+            </div>
+          </div>
         </div>
         <div class="toolbar-group">
           <button id="save-config-button" class="button">Save Connection</button>

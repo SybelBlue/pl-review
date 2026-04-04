@@ -13,10 +13,14 @@ const elements = {
   baseUrlInput: document.getElementById("base-url-input"),
   commandModeStructured: document.getElementById("command-mode-structured"),
   commandModeCustom: document.getElementById("command-mode-custom"),
+  commandModeReconnect: document.getElementById("command-mode-reconnect"),
   structuredCommandEditor: document.getElementById("structured-command-editor"),
   customCommandEditor: document.getElementById("custom-command-editor"),
+  reconnectCommandEditor: document.getElementById("reconnect-command-editor"),
   courseDirectoryInput: document.getElementById("course-directory-input"),
   chooseCourseDirectoryButton: document.getElementById("choose-course-directory-button"),
+  refreshRunningContainersButton: document.getElementById("refresh-running-containers-button"),
+  runningContainersPreview: document.getElementById("running-containers-preview"),
   generatedCommandAccordion: document.getElementById("generated-command-accordion"),
   generatedCommandPreview: document.getElementById("generated-command-preview"),
   startCommandInput: document.getElementById("start-command-input"),
@@ -75,8 +79,9 @@ let isPrairieLearnCommandRunning = false;
 
 function setPrairieLearnRunState(isRunning) {
   isPrairieLearnCommandRunning = isRunning;
-  elements.stopPlButton.hidden = !isRunning;
-  elements.stopPlButton.disabled = !isRunning;
+  const canStop = isRunning || state.prairieLearnReady;
+  elements.stopPlButton.hidden = !canStop;
+  elements.stopPlButton.disabled = !canStop;
   elements.restartPlButton.disabled = isRunning;
   elements.startConfiguredButton.disabled = isRunning;
 }
@@ -170,6 +175,22 @@ function setCurrentUrl(url) {
   elements.currentUrl.textContent = url || "Not loaded";
 }
 
+function collapseConnectionPanelOnSuccessfulPlUrl(url) {
+  if (!url || url === "about:blank") {
+    return;
+  }
+
+  try {
+    const current = new URL(url);
+    const base = new URL(state.config.baseUrl || "http://127.0.0.1:3000");
+    if (current.origin === base.origin) {
+      elements.configPanel.open = false;
+    }
+  } catch (error) {
+    // Ignore parse failures for transient webview URLs.
+  }
+}
+
 function renderDockerLog() {
   elements.dockerOutputLog.textContent = state.dockerLog || "No output yet.";
 }
@@ -213,7 +234,23 @@ function shellQuote(value) {
 }
 
 function getCommandModeFromForm() {
-  return elements.commandModeCustom.checked ? "custom" : "structured";
+  if (elements.commandModeReconnect.checked) {
+    return "reconnect";
+  }
+  if (elements.commandModeCustom.checked) {
+    return "custom";
+  }
+  return "structured";
+}
+
+function getStartButtonLabelForMode(mode) {
+  if (mode === "custom") {
+    return "Save + Start Custom";
+  }
+  if (mode === "reconnect") {
+    return "Save + Reconnect";
+  }
+  return "Save + Start Generated";
 }
 
 function buildStructuredCommandParts(config) {
@@ -259,27 +296,35 @@ function updateCommandEditorState() {
 
   elements.generatedCommandPreview.value = formatCommandPreview(generatedCommandParts);
   const usingStructured = mode === "structured";
+  const usingCustom = mode === "custom";
+  const usingReconnect = mode === "reconnect";
 
   elements.structuredCommandEditor.classList.toggle("is-inactive", !usingStructured);
-  elements.customCommandEditor.classList.toggle("is-inactive", usingStructured);
+  elements.customCommandEditor.classList.toggle("is-inactive", !usingCustom);
+  elements.reconnectCommandEditor.classList.toggle("is-inactive", !usingReconnect);
   elements.courseDirectoryInput.disabled = !usingStructured;
   elements.chooseCourseDirectoryButton.disabled = !usingStructured;
   elements.generatedCommandAccordion.classList.toggle("is-inactive", !usingStructured);
   elements.generatedCommandPreview.disabled = !usingStructured;
-  elements.startCommandInput.disabled = usingStructured;
+  elements.startCommandInput.disabled = !usingCustom;
+  elements.refreshRunningContainersButton.disabled = !usingReconnect;
+  elements.startConfiguredButton.textContent = getStartButtonLabelForMode(mode);
 }
 
 function renderConfig() {
   elements.baseUrlInput.value = state.config.baseUrl;
-  elements.commandModeStructured.checked = state.config.commandMode !== "custom";
+  elements.commandModeStructured.checked = state.config.commandMode === "structured";
   elements.commandModeCustom.checked = state.config.commandMode === "custom";
+  elements.commandModeReconnect.checked = state.config.commandMode === "reconnect";
   elements.courseDirectoryInput.value = state.config.courseDirectory || "";
   elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
   updateCommandEditorState();
 
   const structuredCommand = buildStructuredCommand(state.config);
   const hasCommand =
-    state.config.commandMode === "custom"
+    state.config.commandMode === "reconnect"
+      ? true
+      : state.config.commandMode === "custom"
       ? Boolean((state.config.customStartCommand || state.config.startCommand || "").trim())
       : Boolean(structuredCommand);
 
@@ -294,7 +339,11 @@ function getConfigFromForm() {
   const jobsDirectory = (state.config.jobsDirectory || "").trim();
   const customStartCommand = elements.startCommandInput.value.trim();
   const startCommand =
-    commandMode === "custom" ? customStartCommand : buildStructuredCommand({ courseDirectory, jobsDirectory });
+    commandMode === "custom"
+      ? customStartCommand
+      : commandMode === "structured"
+        ? buildStructuredCommand({ courseDirectory, jobsDirectory })
+        : "";
 
   return {
     baseUrl: elements.baseUrlInput.value.trim() || "http://127.0.0.1:3000",
@@ -304,6 +353,27 @@ function getConfigFromForm() {
     customStartCommand,
     startCommand
   };
+}
+
+async function refreshRunningContainers() {
+  const listed = await window.reviewApi.listPrairieLearnContainers();
+  if (!listed?.ok) {
+    elements.runningContainersPreview.textContent =
+      listed?.error || "Could not list running PrairieLearn containers.";
+    return;
+  }
+
+  if (!listed.containers || listed.containers.length === 0) {
+    elements.runningContainersPreview.textContent = "No running PrairieLearn containers found.";
+    return;
+  }
+
+  elements.runningContainersPreview.textContent = listed.containers
+    .map(
+      (container) =>
+        `${container.id}  ${container.image}\n${container.names || "unnamed"}  ${container.ports || "no ports"}  ${container.status || ""}`
+    )
+    .join("\n\n");
 }
 
 async function ensureStructuredJobsDirectory(config) {
@@ -446,6 +516,7 @@ function loadPrairieLearn(url) {
   const targetUrl = resolvePrairieLearnUrl(url);
   elements.webview.src = targetUrl;
   setCurrentUrl(targetUrl);
+  collapseConnectionPanelOnSuccessfulPlUrl(targetUrl);
 }
 
 function syncToQuestion(question) {
@@ -584,23 +655,35 @@ function setPdfPage(page) {
   saveSession();
 }
 
-async function startPrairieLearn() {
+async function connectPrairieLearn(mode) {
   state.config = getConfigFromForm();
   state.config = await ensureStructuredJobsDirectory(state.config);
-  setPrairieLearnStatus("Starting PrairieLearn...");
+
+  const title = mode === "reconnect" ? "Reconnecting to PrairieLearn..." : "Starting PrairieLearn...";
+  setPrairieLearnStatus(title);
   setPrairieLearnRunState(true);
+
   let result;
   try {
-    result = await window.reviewApi.startPrairieLearn(state.config);
+    if (mode === "reconnect") {
+      result = await window.reviewApi.reconnectPrairieLearn(state.config);
+    } else if (mode === "restart") {
+      result = await window.reviewApi.restartPrairieLearn(state.config);
+    } else {
+      result = await window.reviewApi.startPrairieLearn(state.config);
+    }
   } finally {
     setPrairieLearnRunState(false);
   }
+
   state.config = result.config || state.config;
   renderConfig();
 
   if (result.ok) {
     state.prairieLearnReady = true;
     setPrairieLearnStatus(result.warning ? "PrairieLearn ready (with warning)" : "PrairieLearn ready");
+    setPrairieLearnRunState(isPrairieLearnCommandRunning);
+    elements.configPanel.open = false;
     const question = getCurrentQuestion();
     if (question?.prairielearnPath) {
       loadPrairieLearn(question.prairielearnPath);
@@ -609,37 +692,19 @@ async function startPrairieLearn() {
     }
   } else {
     state.prairieLearnReady = false;
-    setPrairieLearnStatus(result.error || "Unable to start PrairieLearn");
+    setPrairieLearnRunState(isPrairieLearnCommandRunning);
+    setPrairieLearnStatus(result.error || "Unable to connect to PrairieLearn");
   }
 }
 
-async function restartPrairieLearn() {
-  state.config = getConfigFromForm();
-  state.config = await ensureStructuredJobsDirectory(state.config);
-  setPrairieLearnStatus("Restarting PrairieLearn...");
-  setPrairieLearnRunState(true);
-  let result;
-  try {
-    result = await window.reviewApi.restartPrairieLearn(state.config);
-  } finally {
-    setPrairieLearnRunState(false);
-  }
-  state.config = result.config || state.config;
-  renderConfig();
+async function startPrairieLearn() {
+  const mode = getCommandModeFromForm();
+  await connectPrairieLearn(mode === "reconnect" ? "reconnect" : "start");
+}
 
-  if (result.ok) {
-    state.prairieLearnReady = true;
-    setPrairieLearnStatus(result.warning ? "PrairieLearn ready (with warning)" : "PrairieLearn ready");
-    const question = getCurrentQuestion();
-    if (question?.prairielearnPath) {
-      loadPrairieLearn(question.prairielearnPath);
-    } else {
-      loadPrairieLearn(state.config.baseUrl);
-    }
-  } else {
-    state.prairieLearnReady = false;
-    setPrairieLearnStatus(result.error || "Unable to restart PrairieLearn");
-  }
+async function restartPrairieLearn() {
+  const mode = getCommandModeFromForm();
+  await connectPrairieLearn(mode === "reconnect" ? "reconnect" : "restart");
 }
 
 async function saveConfig() {
@@ -746,14 +811,17 @@ function bindWebviewEvents() {
   elements.webview.addEventListener("dom-ready", () => {
     const url = elements.webview.getURL();
     setCurrentUrl(url);
+    collapseConnectionPanelOnSuccessfulPlUrl(url);
   });
 
   elements.webview.addEventListener("did-navigate", (event) => {
     setCurrentUrl(event.url);
+    collapseConnectionPanelOnSuccessfulPlUrl(event.url);
   });
 
   elements.webview.addEventListener("did-navigate-in-page", (event) => {
     setCurrentUrl(event.url);
+    collapseConnectionPanelOnSuccessfulPlUrl(event.url);
   });
 
   elements.webview.addEventListener("page-title-updated", (event) => {
@@ -772,17 +840,39 @@ function bindEvents() {
   elements.choosePdfButton.addEventListener("click", choosePdf);
   elements.restartPlButton.addEventListener("click", restartPrairieLearn);
   elements.stopPlButton.addEventListener("click", async () => {
-    if (!isPrairieLearnCommandRunning) {
+    if (!isPrairieLearnCommandRunning && !state.prairieLearnReady) {
       return;
     }
 
     elements.stopPlButton.disabled = true;
-    setPrairieLearnStatus("Stopping PrairieLearn start...");
-    const result = await window.reviewApi.stopPrairieLearnStart();
-    if (!result?.ok) {
-      setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn start.");
-      elements.stopPlButton.disabled = false;
+
+    if (isPrairieLearnCommandRunning) {
+      setPrairieLearnStatus("Stopping PrairieLearn start...");
+      const result = await window.reviewApi.stopPrairieLearnStart();
+      if (!result?.ok) {
+        setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn start.");
+      } else {
+        setPrairieLearnStatus("PrairieLearn start stopped.");
+        elements.configPanel.open = true;
+        await refreshRunningContainers();
+      }
+      setPrairieLearnRunState(isPrairieLearnCommandRunning);
+      return;
     }
+
+    setPrairieLearnStatus("Stopping connected PrairieLearn container...");
+    const result = await window.reviewApi.stopConnectedPrairieLearn(state.config.baseUrl);
+    if (!result?.ok) {
+      setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn container.");
+    } else {
+      state.prairieLearnReady = false;
+      setPrairieLearnStatus("PrairieLearn container stopped.");
+      elements.webview.src = "about:blank";
+      setCurrentUrl("");
+      elements.configPanel.open = true;
+      await refreshRunningContainers();
+    }
+    setPrairieLearnRunState(isPrairieLearnCommandRunning);
   });
   elements.openBrowserButton.addEventListener("click", () => {
     const target = state.currentPrairieLearnUrl || state.config.baseUrl;
@@ -795,6 +885,10 @@ function bindEvents() {
   });
   elements.commandModeStructured.addEventListener("change", updateCommandEditorState);
   elements.commandModeCustom.addEventListener("change", updateCommandEditorState);
+  elements.commandModeReconnect.addEventListener("change", async () => {
+    updateCommandEditorState();
+    await refreshRunningContainers();
+  });
   elements.courseDirectoryInput.addEventListener("input", updateCommandEditorState);
   elements.startCommandInput.addEventListener("input", updateCommandEditorState);
   elements.chooseCourseDirectoryButton.addEventListener("click", async () => {
@@ -806,6 +900,7 @@ function bindEvents() {
     elements.courseDirectoryInput.value = selectedDirectory;
     updateCommandEditorState();
   });
+  elements.refreshRunningContainersButton.addEventListener("click", refreshRunningContainers);
 
   elements.newQuestionButton.addEventListener("click", () => addQuestion(false));
   elements.captureViewButton.addEventListener("click", () => {
@@ -900,6 +995,7 @@ async function init() {
   });
   state.config = await window.reviewApi.getConfig();
   state.config = await ensureStructuredJobsDirectory(state.config);
+  await refreshRunningContainers();
   renderDockerLog();
   renderAll();
   setPrairieLearnRunState(false);

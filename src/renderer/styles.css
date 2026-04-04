@@ -245,6 +245,12 @@ button {
   margin-bottom: 2px;
 }
 
+.command-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .command-mode-inline {
   display: inline-flex;
   flex-direction: row;
@@ -261,6 +267,10 @@ button {
 
 .command-editor.is-inactive {
   opacity: 0.58;
+}
+
+.command-editor.is-inactive .command-editor-body {
+  display: none;
 }
 
 .command-editor textarea:disabled,
@@ -296,6 +306,21 @@ button {
   font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
   line-height: 1.35;
   white-space: pre;
+}
+
+#running-containers-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(77, 61, 44, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.76);
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.32;
 }
 
 .docker-output-accordion {
