@@ -4,7 +4,8 @@
   "description": "Electron desktop reviewer for PrairieLearn assessments and synced PDFs.",
   "main": "src/main.js",
   "scripts": {
-    "start": "node scripts/start-electron.js"
+    "start": "node scripts/start-electron.js",
+    "dev": "node scripts/start-electron.js --dev"
   },
   "keywords": [
     "electron",

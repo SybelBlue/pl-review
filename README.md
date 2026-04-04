@@ -26,9 +26,17 @@ npm install
 npm start
 ```
 
+## Dev Mode
+
+```bash
+npm run dev
+```
+
+In dev mode, saving files under `src/renderer/` reloads the window, while saving `src/main.js` or `src/preload.js` relaunches Electron.
+
 ## First Launch
 
-1. Pick the assessment PDF when the app opens.
+1. Click `Choose PDF` or drag a PDF into the window.
 2. Open the `PrairieLearn Connection` panel.
 3. Set `Base URL` to the PrairieLearn URL you expect locally, such as `http://127.0.0.1:3000`.
 4. Paste a Docker start command that launches your immutable PrairieLearn container.
@@ -54,4 +62,3 @@ Use `Capture Current View` after navigating PrairieLearn in the embedded webview
 
 - PrairieLearn connection settings are stored in Electron's app data directory.
 - Review sessions are stored in renderer `localStorage`, keyed by the selected PDF path, so returning to the same file restores your question mappings, flags, notes, and last viewed page.
-

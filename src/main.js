@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { promisify } = require("node:util");
@@ -13,6 +14,9 @@ const DEFAULT_CONFIG = {
 };
 
 let mainWindow = null;
+let devWatchers = [];
+let rendererReloadTimer = null;
+let restartTimer = null;
 
 function getSettingsPath() {
   return path.join(app.getPath("userData"), SETTINGS_FILE);
@@ -173,6 +177,65 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
+function scheduleRendererReload() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  clearTimeout(rendererReloadTimer);
+  rendererReloadTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.reloadIgnoringCache();
+    }
+  }, 120);
+}
+
+function scheduleAppRestart() {
+  clearTimeout(restartTimer);
+  restartTimer = setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 180);
+}
+
+function startDevWatchers() {
+  if (process.env.PL_REVIEW_DEV_WATCH !== "1" || devWatchers.length > 0) {
+    return;
+  }
+
+  const watchTargets = [
+    {
+      target: path.join(__dirname, "renderer"),
+      onChange: scheduleRendererReload,
+      recursive: true
+    },
+    {
+      target: path.join(__dirname, "main.js"),
+      onChange: scheduleAppRestart
+    },
+    {
+      target: path.join(__dirname, "preload.js"),
+      onChange: scheduleAppRestart
+    }
+  ];
+
+  devWatchers = watchTargets.map(({ target, onChange, recursive }) =>
+    fsSync.watch(target, { recursive: Boolean(recursive) }, (_eventType, filename) => {
+      if (filename && filename.startsWith(".")) {
+        return;
+      }
+      onChange();
+    })
+  );
+}
+
+function stopDevWatchers() {
+  devWatchers.forEach((watcher) => watcher.close());
+  devWatchers = [];
+  clearTimeout(rendererReloadTimer);
+  clearTimeout(restartTimer);
+}
+
 ipcMain.handle("select-pdf", async () => selectPdfFile());
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));
@@ -185,6 +248,7 @@ ipcMain.handle("open-external", async (_event, url) => {
 
 app.whenReady().then(() => {
   createWindow();
+  startDevWatchers();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -199,3 +263,6 @@ app.on("window-all-closed", () => {
   }
 });
 
+app.on("before-quit", () => {
+  stopDevWatchers();
+});
