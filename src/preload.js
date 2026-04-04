@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld("reviewApi", {
   getConfig: () => ipcRenderer.invoke("get-config"),
   saveConfig: (config) => ipcRenderer.invoke("save-config", config),
   startPrairieLearn: (config) => ipcRenderer.invoke("start-prairielearn", config),
+  onDockerOutput: (handler) => {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("docker-output", listener);
+    return () => ipcRenderer.removeListener("docker-output", listener);
+  },
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   buildPdfUrl: (filePath, page = 1) => {

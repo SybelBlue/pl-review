@@ -298,6 +298,32 @@ button {
   white-space: pre;
 }
 
+.docker-output-accordion {
+  margin-top: 12px;
+  border: 1px solid rgba(77, 61, 44, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.docker-output-accordion summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+#docker-output-log {
+  margin: 0;
+  padding: 0 12px 12px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .inline-input-group {
   display: flex;
   gap: 10px;

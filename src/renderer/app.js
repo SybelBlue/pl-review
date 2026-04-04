@@ -21,6 +21,8 @@ const elements = {
   generatedCommandPreview: document.getElementById("generated-command-preview"),
   startCommandInput: document.getElementById("start-command-input"),
   configPanel: document.getElementById("config-panel"),
+  dockerOutputAccordion: document.getElementById("docker-output-accordion"),
+  dockerOutputLog: document.getElementById("docker-output-log"),
   dropOverlay: document.getElementById("drop-overlay"),
   skipOverlayButton: document.getElementById("skip-overlay-button"),
   questionList: document.getElementById("question-list"),
@@ -63,10 +65,13 @@ const state = {
   currentPdfPage: 1,
   currentPrairieLearnUrl: "",
   currentPrairieLearnTitle: "",
-  prairieLearnReady: false
+  prairieLearnReady: false,
+  dockerLog: ""
 };
 
 let dragDepth = 0;
+let removeDockerOutputListener = null;
+const maxDockerLogChars = 180000;
 
 function createEmptySession(pdfPath) {
   return {
@@ -155,6 +160,44 @@ function setPrairieLearnStatus(message) {
 function setCurrentUrl(url) {
   state.currentPrairieLearnUrl = url || "";
   elements.currentUrl.textContent = url || "Not loaded";
+}
+
+function renderDockerLog() {
+  elements.dockerOutputLog.textContent = state.dockerLog || "No output yet.";
+}
+
+function resetDockerLog() {
+  state.dockerLog = "";
+  renderDockerLog();
+}
+
+function appendDockerLog(text) {
+  if (!text) {
+    return;
+  }
+
+  state.dockerLog += text;
+  if (state.dockerLog.length > maxDockerLogChars) {
+    state.dockerLog = state.dockerLog.slice(-maxDockerLogChars);
+  }
+  renderDockerLog();
+}
+
+function handleDockerOutput(payload) {
+  if (!payload) {
+    return;
+  }
+
+  if (payload.type === "reset") {
+    resetDockerLog();
+    elements.dockerOutputAccordion.open = true;
+    return;
+  }
+
+  if (payload.type === "chunk") {
+    appendDockerLog(payload.text || "");
+    elements.dockerOutputAccordion.open = true;
+  }
 }
 
 function shellQuote(value) {
@@ -791,8 +834,16 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  removeDockerOutputListener = window.reviewApi.onDockerOutput(handleDockerOutput);
+  window.addEventListener("beforeunload", () => {
+    if (typeof removeDockerOutputListener === "function") {
+      removeDockerOutputListener();
+      removeDockerOutputListener = null;
+    }
+  });
   state.config = await window.reviewApi.getConfig();
   state.config = await ensureStructuredJobsDirectory(state.config);
+  renderDockerLog();
   renderAll();
 }
 

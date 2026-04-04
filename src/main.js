@@ -3,10 +3,8 @@ const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { promisify } = require("node:util");
-const { exec } = require("node:child_process");
+const { spawn } = require("node:child_process");
 
-const execAsync = promisify(exec);
 const SETTINGS_FILE = "settings.json";
 const DEFAULT_CONFIG = {
   baseUrl: "http://127.0.0.1:3000",
@@ -102,18 +100,103 @@ async function ensureJobsDirectory(existingPath = "") {
   return fs.mkdtemp(tempPrefix);
 }
 
-function serializeCommandError(error) {
-  const parts = [];
-  if (error.message) {
-    parts.push(error.message.trim());
+function sendDockerOutput(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
   }
-  if (typeof error.stderr === "string" && error.stderr.trim()) {
-    parts.push(error.stderr.trim());
-  }
-  if (typeof error.stdout === "string" && error.stdout.trim()) {
-    parts.push(error.stdout.trim());
-  }
-  return parts.join("\n");
+
+  mainWindow.webContents.send("docker-output", payload);
+}
+
+function runStartCommandWithStreaming(command) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    let settled = false;
+    let timedOut = false;
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    sendDockerOutput({ type: "chunk", stream: "info", text: `$ ${command}\n` });
+
+    const child = spawn(command, {
+      shell: "/bin/zsh"
+    });
+
+    const timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      sendDockerOutput({
+        type: "chunk",
+        stream: "stderr",
+        text: "Start command timed out after 15 seconds. Sending SIGTERM...\n"
+      });
+      child.kill("SIGTERM");
+      setTimeout(() => {
+        if (!settled) {
+          child.kill("SIGKILL");
+        }
+      }, 2000);
+    }, 15000);
+
+    child.stdout.on("data", (data) => {
+      const text = data.toString();
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stdout", text });
+    });
+
+    child.stderr.on("data", (data) => {
+      const text = data.toString();
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stderr", text });
+    });
+
+    child.on("error", (error) => {
+      clearTimeout(timeoutHandle);
+      const text = `${error.message}\n`;
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stderr", text });
+      finish({
+        ok: false,
+        warning: error.message,
+        output: chunks.join("")
+      });
+    });
+
+    child.on("close", (code, signal) => {
+      clearTimeout(timeoutHandle);
+
+      if (timedOut) {
+        finish({
+          ok: false,
+          warning: "Start command timed out after 15 seconds.",
+          output: chunks.join("")
+        });
+        return;
+      }
+
+      if (code !== 0) {
+        const warning = `Start command exited with code ${code}${signal ? ` (${signal})` : ""}.`;
+        sendDockerOutput({ type: "chunk", stream: "stderr", text: `${warning}\n` });
+        finish({
+          ok: false,
+          warning,
+          output: chunks.join("")
+        });
+        return;
+      }
+
+      finish({
+        ok: true,
+        warning: "",
+        output: chunks.join("")
+      });
+    });
+  });
 }
 
 async function checkUrlReady(url) {
@@ -153,6 +236,7 @@ async function waitForPrairieLearn(baseUrl, timeoutMs) {
 }
 
 async function startPrairieLearn(config) {
+  sendDockerOutput({ type: "reset" });
   const normalized = await writeConfig(config);
 
   if (!normalized.startCommand.trim()) {
@@ -165,22 +249,21 @@ async function startPrairieLearn(config) {
     };
   }
 
-  let commandOutput = "";
-  let commandWarning = "";
+  sendDockerOutput({ type: "chunk", stream: "info", text: "Running PrairieLearn start command...\n" });
 
-  try {
-    const result = await execAsync(normalized.startCommand, {
-      shell: "/bin/zsh",
-      timeout: 15000,
-      maxBuffer: 1024 * 1024
-    });
-    commandOutput = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
-  } catch (error) {
-    commandWarning = serializeCommandError(error);
-  }
+  const commandResult = await runStartCommandWithStreaming(normalized.startCommand);
+  const commandOutput = commandResult.output.trim();
+  const commandWarning = commandResult.warning;
+
+  sendDockerOutput({
+    type: "chunk",
+    stream: "info",
+    text: `Checking PrairieLearn readiness at ${normalized.baseUrl}...\n`
+  });
 
   const ready = await waitForPrairieLearn(normalized.baseUrl, normalized.readyTimeoutMs);
   if (ready.ok) {
+    sendDockerOutput({ type: "chunk", stream: "info", text: "PrairieLearn is reachable.\n" });
     return {
       ok: true,
       config: normalized,
@@ -189,6 +272,7 @@ async function startPrairieLearn(config) {
     };
   }
 
+  sendDockerOutput({ type: "chunk", stream: "stderr", text: `${ready.error}\n` });
   return {
     ok: false,
     config: normalized,
