@@ -29,6 +29,7 @@
         <div class="toolbar-group">
           <button id="choose-pdf-button" class="button button-primary">Choose PDF</button>
           <button id="restart-pl-button" class="button">Start PrairieLearn</button>
+          <button id="stop-pl-button" class="button button-danger" hidden disabled>Stop</button>
           <button id="open-browser-button" class="button">Open in Browser</button>
         </div>
       </header>
@@ -54,10 +55,6 @@
           <label>
             <span>Base URL</span>
             <input id="base-url-input" type="url" placeholder="http://127.0.0.1:3000" />
-          </label>
-          <label>
-            <span>Ready Timeout (ms)</span>
-            <input id="ready-timeout-input" type="number" min="5000" step="1000" />
           </label>
 
           <div id="structured-command-editor" class="full-width command-editor">

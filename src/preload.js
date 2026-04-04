@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("reviewApi", {
   getConfig: () => ipcRenderer.invoke("get-config"),
   saveConfig: (config) => ipcRenderer.invoke("save-config", config),
   startPrairieLearn: (config) => ipcRenderer.invoke("start-prairielearn", config),
+  restartPrairieLearn: (config) => ipcRenderer.invoke("restart-prairielearn", config),
+  stopPrairieLearnStart: () => ipcRenderer.invoke("stop-prairielearn-start"),
   onDockerOutput: (handler) => {
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on("docker-output", listener);

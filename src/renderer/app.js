@@ -3,6 +3,7 @@ const sessionPrefix = "pl-review-session:";
 const elements = {
   choosePdfButton: document.getElementById("choose-pdf-button"),
   restartPlButton: document.getElementById("restart-pl-button"),
+  stopPlButton: document.getElementById("stop-pl-button"),
   openBrowserButton: document.getElementById("open-browser-button"),
   saveConfigButton: document.getElementById("save-config-button"),
   startConfiguredButton: document.getElementById("start-configured-button"),
@@ -10,7 +11,6 @@ const elements = {
   plStatus: document.getElementById("pl-status"),
   currentUrl: document.getElementById("current-url"),
   baseUrlInput: document.getElementById("base-url-input"),
-  readyTimeoutInput: document.getElementById("ready-timeout-input"),
   commandModeStructured: document.getElementById("command-mode-structured"),
   commandModeCustom: document.getElementById("command-mode-custom"),
   structuredCommandEditor: document.getElementById("structured-command-editor"),
@@ -57,8 +57,7 @@ const state = {
     courseDirectory: "",
     jobsDirectory: "",
     customStartCommand: "",
-    startCommand: "",
-    readyTimeoutMs: 30000
+    startCommand: ""
   },
   pdf: null,
   session: null,
@@ -72,6 +71,15 @@ const state = {
 let dragDepth = 0;
 let removeDockerOutputListener = null;
 const maxDockerLogChars = 180000;
+let isPrairieLearnCommandRunning = false;
+
+function setPrairieLearnRunState(isRunning) {
+  isPrairieLearnCommandRunning = isRunning;
+  elements.stopPlButton.hidden = !isRunning;
+  elements.stopPlButton.disabled = !isRunning;
+  elements.restartPlButton.disabled = isRunning;
+  elements.startConfiguredButton.disabled = isRunning;
+}
 
 function createEmptySession(pdfPath) {
   return {
@@ -263,7 +271,6 @@ function updateCommandEditorState() {
 
 function renderConfig() {
   elements.baseUrlInput.value = state.config.baseUrl;
-  elements.readyTimeoutInput.value = String(state.config.readyTimeoutMs);
   elements.commandModeStructured.checked = state.config.commandMode !== "custom";
   elements.commandModeCustom.checked = state.config.commandMode === "custom";
   elements.courseDirectoryInput.value = state.config.courseDirectory || "";
@@ -295,7 +302,6 @@ function getConfigFromForm() {
     courseDirectory,
     jobsDirectory,
     customStartCommand,
-    readyTimeoutMs: Number(elements.readyTimeoutInput.value) || 30000,
     startCommand
   };
 }
@@ -582,7 +588,13 @@ async function startPrairieLearn() {
   state.config = getConfigFromForm();
   state.config = await ensureStructuredJobsDirectory(state.config);
   setPrairieLearnStatus("Starting PrairieLearn...");
-  const result = await window.reviewApi.startPrairieLearn(state.config);
+  setPrairieLearnRunState(true);
+  let result;
+  try {
+    result = await window.reviewApi.startPrairieLearn(state.config);
+  } finally {
+    setPrairieLearnRunState(false);
+  }
   state.config = result.config || state.config;
   renderConfig();
 
@@ -601,7 +613,39 @@ async function startPrairieLearn() {
   }
 }
 
+async function restartPrairieLearn() {
+  state.config = getConfigFromForm();
+  state.config = await ensureStructuredJobsDirectory(state.config);
+  setPrairieLearnStatus("Restarting PrairieLearn...");
+  setPrairieLearnRunState(true);
+  let result;
+  try {
+    result = await window.reviewApi.restartPrairieLearn(state.config);
+  } finally {
+    setPrairieLearnRunState(false);
+  }
+  state.config = result.config || state.config;
+  renderConfig();
+
+  if (result.ok) {
+    state.prairieLearnReady = true;
+    setPrairieLearnStatus(result.warning ? "PrairieLearn ready (with warning)" : "PrairieLearn ready");
+    const question = getCurrentQuestion();
+    if (question?.prairielearnPath) {
+      loadPrairieLearn(question.prairielearnPath);
+    } else {
+      loadPrairieLearn(state.config.baseUrl);
+    }
+  } else {
+    state.prairieLearnReady = false;
+    setPrairieLearnStatus(result.error || "Unable to restart PrairieLearn");
+  }
+}
+
 async function saveConfig() {
+  if (isPrairieLearnCommandRunning) {
+    return;
+  }
   state.config = getConfigFromForm();
   state.config = await ensureStructuredJobsDirectory(state.config);
   state.config = await window.reviewApi.saveConfig(state.config);
@@ -726,7 +770,20 @@ function bindEvents() {
     event.preventDefault();
   });
   elements.choosePdfButton.addEventListener("click", choosePdf);
-  elements.restartPlButton.addEventListener("click", startPrairieLearn);
+  elements.restartPlButton.addEventListener("click", restartPrairieLearn);
+  elements.stopPlButton.addEventListener("click", async () => {
+    if (!isPrairieLearnCommandRunning) {
+      return;
+    }
+
+    elements.stopPlButton.disabled = true;
+    setPrairieLearnStatus("Stopping PrairieLearn start...");
+    const result = await window.reviewApi.stopPrairieLearnStart();
+    if (!result?.ok) {
+      setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn start.");
+      elements.stopPlButton.disabled = false;
+    }
+  });
   elements.openBrowserButton.addEventListener("click", () => {
     const target = state.currentPrairieLearnUrl || state.config.baseUrl;
     window.reviewApi.openExternal(target);
@@ -845,6 +902,7 @@ async function init() {
   state.config = await ensureStructuredJobsDirectory(state.config);
   renderDockerLog();
   renderAll();
+  setPrairieLearnRunState(false);
 }
 
 init();

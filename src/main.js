@@ -12,21 +12,20 @@ const DEFAULT_CONFIG = {
   courseDirectory: "",
   jobsDirectory: "",
   customStartCommand: "",
-  startCommand: "",
-  readyTimeoutMs: 30000
+  startCommand: ""
 };
 
 let mainWindow = null;
 let devWatchers = [];
 let rendererReloadTimer = null;
 let restartTimer = null;
+let activeStartRun = null;
 
 function getSettingsPath() {
   return path.join(app.getPath("userData"), SETTINGS_FILE);
 }
 
 function normalizeConfig(config = {}) {
-  const readyTimeoutMs = Number(config.readyTimeoutMs) || DEFAULT_CONFIG.readyTimeoutMs;
   const hasLegacyStartCommand =
     typeof config.startCommand === "string" &&
     config.startCommand.trim() &&
@@ -37,8 +36,7 @@ function normalizeConfig(config = {}) {
     ...DEFAULT_CONFIG,
     ...config,
     commandMode: hasLegacyStartCommand ? "custom" : config.commandMode || DEFAULT_CONFIG.commandMode,
-    customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || "",
-    readyTimeoutMs: Math.max(5000, readyTimeoutMs)
+    customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || ""
   };
 }
 
@@ -108,11 +106,13 @@ function sendDockerOutput(payload) {
   mainWindow.webContents.send("docker-output", payload);
 }
 
-function runStartCommandWithStreaming(command) {
+function runStartCommandWithStreaming(command, runState) {
   return new Promise((resolve) => {
     const chunks = [];
     let settled = false;
-    let timedOut = false;
+    let readyTriggered = false;
+    let detectionBuffer = "";
+    const readyPattern = /go to .*localhost:/i;
 
     const finish = (result) => {
       if (settled) {
@@ -127,36 +127,51 @@ function runStartCommandWithStreaming(command) {
     const child = spawn(command, {
       shell: "/bin/zsh"
     });
-
-    const timeoutHandle = setTimeout(() => {
-      timedOut = true;
-      sendDockerOutput({
-        type: "chunk",
-        stream: "stderr",
-        text: "Start command timed out after 15 seconds. Sending SIGTERM...\n"
-      });
-      child.kill("SIGTERM");
-      setTimeout(() => {
-        if (!settled) {
-          child.kill("SIGKILL");
-        }
-      }, 2000);
-    }, 15000);
+    runState.child = child;
 
     child.stdout.on("data", (data) => {
       const text = data.toString();
       chunks.push(text);
       sendDockerOutput({ type: "chunk", stream: "stdout", text });
+      detectionBuffer = `${detectionBuffer}${text}`.slice(-12000);
+      if (!readyTriggered && readyPattern.test(detectionBuffer)) {
+        readyTriggered = true;
+        sendDockerOutput({
+          type: "chunk",
+          stream: "info",
+          text: 'Detected readiness trigger: "Go to localhost".\n'
+        });
+        finish({
+          ok: true,
+          warning: "",
+          output: chunks.join(""),
+          readyTriggered: true
+        });
+      }
     });
 
     child.stderr.on("data", (data) => {
       const text = data.toString();
       chunks.push(text);
       sendDockerOutput({ type: "chunk", stream: "stderr", text });
+      detectionBuffer = `${detectionBuffer}${text}`.slice(-12000);
+      if (!readyTriggered && readyPattern.test(detectionBuffer)) {
+        readyTriggered = true;
+        sendDockerOutput({
+          type: "chunk",
+          stream: "info",
+          text: 'Detected readiness trigger: "Go to localhost".\n'
+        });
+        finish({
+          ok: true,
+          warning: "",
+          output: chunks.join(""),
+          readyTriggered: true
+        });
+      }
     });
 
     child.on("error", (error) => {
-      clearTimeout(timeoutHandle);
       const text = `${error.message}\n`;
       chunks.push(text);
       sendDockerOutput({ type: "chunk", stream: "stderr", text });
@@ -168,12 +183,11 @@ function runStartCommandWithStreaming(command) {
     });
 
     child.on("close", (code, signal) => {
-      clearTimeout(timeoutHandle);
-
-      if (timedOut) {
+      runState.child = null;
+      if (runState.cancelled) {
         finish({
           ok: false,
-          warning: "Start command timed out after 15 seconds.",
+          warning: "Start command stopped by user.",
           output: chunks.join("")
         });
         return;
@@ -193,10 +207,147 @@ function runStartCommandWithStreaming(command) {
       finish({
         ok: true,
         warning: "",
-        output: chunks.join("")
+        output: chunks.join(""),
+        readyTriggered: false
       });
     });
   });
+}
+
+function getPortFromBaseUrl(baseUrl) {
+  try {
+    const url = new URL(baseUrl);
+    if (url.port) {
+      return Number(url.port);
+    }
+    return url.protocol === "https:" ? 443 : 80;
+  } catch (error) {
+    return 3000;
+  }
+}
+
+function runShellCommandWithStreaming(command, runState) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    let settled = false;
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    const child = spawn(command, {
+      shell: "/bin/zsh"
+    });
+    runState.child = child;
+
+    child.stdout.on("data", (data) => {
+      const text = data.toString();
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stdout", text });
+    });
+
+    child.stderr.on("data", (data) => {
+      const text = data.toString();
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stderr", text });
+    });
+
+    child.on("error", (error) => {
+      const text = `${error.message}\n`;
+      chunks.push(text);
+      sendDockerOutput({ type: "chunk", stream: "stderr", text });
+      finish({
+        ok: false,
+        output: chunks.join(""),
+        error: error.message
+      });
+    });
+
+    child.on("close", (code) => {
+      runState.child = null;
+      if (runState.cancelled) {
+        finish({
+          ok: false,
+          output: chunks.join(""),
+          error: "Command stopped by user."
+        });
+        return;
+      }
+
+      finish({
+        ok: code === 0,
+        output: chunks.join(""),
+        error: code === 0 ? "" : `Command exited with code ${code}.`
+      });
+    });
+  });
+}
+
+async function stopRunningPrairieLearnContainers(baseUrl, runState) {
+  if (runState.cancelled) {
+    return;
+  }
+
+  const port = getPortFromBaseUrl(baseUrl);
+  sendDockerOutput({
+    type: "chunk",
+    stream: "info",
+    text: `Checking for running containers on host port ${port}...\n`
+  });
+
+  const listResult = await runShellCommandWithStreaming(
+    `docker ps --filter publish=${port} --format "{{.ID}} {{.Image}}"`,
+    runState
+  );
+
+  if (!listResult.ok) {
+    sendDockerOutput({
+      type: "chunk",
+      stream: "stderr",
+      text: `Could not list running containers on port ${port}. ${listResult.error}\n`
+    });
+    return;
+  }
+
+  const lines = listResult.output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    sendDockerOutput({
+      type: "chunk",
+      stream: "info",
+      text: "No running PrairieLearn containers needed stopping.\n"
+    });
+    return;
+  }
+
+  const ids = lines.map((line) => line.split(/\s+/)[0]).filter(Boolean);
+  sendDockerOutput({
+    type: "chunk",
+    stream: "info",
+    text: `Stopping ${ids.length} running container(s): ${ids.join(", ")}\n`
+  });
+
+  const stopResult = await runShellCommandWithStreaming(`docker stop ${ids.join(" ")}`, runState);
+  if (!stopResult.ok) {
+    sendDockerOutput({
+      type: "chunk",
+      stream: "stderr",
+      text: `Container stop command failed. ${stopResult.error}\n`
+    });
+  } else {
+    sendDockerOutput({
+      type: "chunk",
+      stream: "info",
+      text: "Container stop complete.\n"
+    });
+  }
 }
 
 async function checkUrlReady(url) {
@@ -217,10 +368,8 @@ async function checkUrlReady(url) {
   }
 }
 
-async function waitForPrairieLearn(baseUrl, timeoutMs) {
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeoutMs) {
+async function waitForPrairieLearn(baseUrl, runState) {
+  while (!runState.cancelled) {
     if (await checkUrlReady(baseUrl)) {
       return { ok: true };
     }
@@ -229,17 +378,32 @@ async function waitForPrairieLearn(baseUrl, timeoutMs) {
 
   return {
     ok: false,
-    error: `PrairieLearn did not become reachable at ${baseUrl} within ${Math.round(
-      timeoutMs / 1000
-    )} seconds.`
+    error: "PrairieLearn start was stopped before it became reachable."
   };
 }
 
-async function startPrairieLearn(config) {
-  sendDockerOutput({ type: "reset" });
-  const normalized = await writeConfig(config);
+async function runPrairieLearnStart(normalizedConfig, options = { resetLog: true }) {
+  if (activeStartRun) {
+    return {
+      ok: false,
+      config: normalizedConfig,
+      error: "A PrairieLearn start operation is already running."
+    };
+  }
 
+  const runState = {
+    cancelled: false,
+    child: null
+  };
+  activeStartRun = runState;
+
+  if (options.resetLog !== false) {
+    sendDockerOutput({ type: "reset" });
+  }
+
+  const normalized = normalizedConfig;
   if (!normalized.startCommand.trim()) {
+    activeStartRun = null;
     return {
       ok: false,
       error:
@@ -251,9 +415,40 @@ async function startPrairieLearn(config) {
 
   sendDockerOutput({ type: "chunk", stream: "info", text: "Running PrairieLearn start command...\n" });
 
-  const commandResult = await runStartCommandWithStreaming(normalized.startCommand);
+  const commandResult = await runStartCommandWithStreaming(normalized.startCommand, runState);
   const commandOutput = commandResult.output.trim();
   const commandWarning = commandResult.warning;
+
+  if (commandResult.readyTriggered) {
+    activeStartRun = null;
+    sendDockerOutput({ type: "chunk", stream: "info", text: "Using log-based readiness trigger.\n" });
+    return {
+      ok: true,
+      config: normalized,
+      warning: commandWarning || "",
+      output: commandOutput
+    };
+  }
+
+  if (!commandResult.ok && !runState.cancelled) {
+    activeStartRun = null;
+    return {
+      ok: false,
+      config: normalized,
+      error: commandWarning || "Start command failed.",
+      output: commandOutput
+    };
+  }
+
+  if (runState.cancelled) {
+    activeStartRun = null;
+    return {
+      ok: false,
+      config: normalized,
+      error: "PrairieLearn start stopped by user.",
+      output: commandOutput
+    };
+  }
 
   sendDockerOutput({
     type: "chunk",
@@ -261,7 +456,8 @@ async function startPrairieLearn(config) {
     text: `Checking PrairieLearn readiness at ${normalized.baseUrl}...\n`
   });
 
-  const ready = await waitForPrairieLearn(normalized.baseUrl, normalized.readyTimeoutMs);
+  const ready = await waitForPrairieLearn(normalized.baseUrl, runState);
+  activeStartRun = null;
   if (ready.ok) {
     sendDockerOutput({ type: "chunk", stream: "info", text: "PrairieLearn is reachable.\n" });
     return {
@@ -279,6 +475,46 @@ async function startPrairieLearn(config) {
     error: commandWarning ? `${commandWarning}\n\n${ready.error}` : ready.error,
     output: commandOutput
   };
+}
+
+async function startPrairieLearn(config) {
+  const normalized = await writeConfig(config);
+  return runPrairieLearnStart(normalized, { resetLog: true });
+}
+
+async function restartPrairieLearn(config) {
+  if (activeStartRun) {
+    return {
+      ok: false,
+      config,
+      error: "A PrairieLearn start operation is already running."
+    };
+  }
+
+  const normalized = await writeConfig(config);
+  sendDockerOutput({ type: "reset" });
+  sendDockerOutput({ type: "chunk", stream: "info", text: "Starting clean restart...\n" });
+  await stopRunningPrairieLearnContainers(normalized.baseUrl, { cancelled: false, child: null });
+  return runPrairieLearnStart(normalized, { resetLog: false });
+}
+
+async function stopPrairieLearnStart() {
+  if (!activeStartRun) {
+    return { ok: false, error: "No PrairieLearn start operation is running." };
+  }
+
+  activeStartRun.cancelled = true;
+  sendDockerOutput({ type: "chunk", stream: "info", text: "Stop requested. Terminating running command...\n" });
+  if (activeStartRun.child) {
+    activeStartRun.child.kill("SIGTERM");
+    setTimeout(() => {
+      if (activeStartRun && activeStartRun.child) {
+        activeStartRun.child.kill("SIGKILL");
+      }
+    }, 2000);
+  }
+
+  return { ok: true };
 }
 
 function createWindow() {
@@ -366,6 +602,8 @@ ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJo
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));
 ipcMain.handle("start-prairielearn", async (_event, config) => startPrairieLearn(config));
+ipcMain.handle("restart-prairielearn", async (_event, config) => restartPrairieLearn(config));
+ipcMain.handle("stop-prairielearn-start", async () => stopPrairieLearnStart());
 ipcMain.handle("open-external", async (_event, url) => {
   if (url) {
     await shell.openExternal(url);
