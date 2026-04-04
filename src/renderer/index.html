@@ -59,12 +59,42 @@
             <span>Ready Timeout (ms)</span>
             <input id="ready-timeout-input" type="number" min="5000" step="1000" />
           </label>
-          <label class="full-width">
-            <span>Docker Start Command</span>
+
+          <div id="structured-command-editor" class="full-width command-editor">
+            <div class="command-editor-header">
+              <label class="command-mode-inline">
+                <input id="command-mode-structured" type="radio" name="command-mode" value="structured" />
+                <span>Generated</span>
+              </label>
+            </div>
+            <label>
+              <span>Course Directory For `/course`</span>
+              <div class="inline-input-group">
+                <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
+                <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
+              </div>
+            </label>
+            <p class="helper-text">
+              The structured editor generates the Docker command for you. Only the host path mounted to `/course`
+              needs to be chosen here.
+            </p>
+            <label>
+              <span>Generated Command</span>
+              <textarea id="generated-command-preview" rows="3" readonly></textarea>
+            </label>
+          </div>
+
+          <label id="custom-command-editor" class="full-width command-editor">
+            <span class="command-editor-header">
+              <span class="command-mode-inline">
+                <input id="command-mode-custom" type="radio" name="command-mode" value="custom" />
+                <span>Custom</span>
+              </span>
+            </span>
             <textarea
               id="start-command-input"
               rows="3"
-              placeholder="docker run -d --rm --name pl-review -p 3000:3000 your-prairielearn-image"
+              placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
             ></textarea>
           </label>
         </div>

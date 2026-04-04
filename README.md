@@ -39,12 +39,13 @@ In dev mode, saving files under `src/renderer/` reloads the window, while saving
 1. Click `Choose PDF` or drag a PDF into the window.
 2. Open the `PrairieLearn Connection` panel.
 3. Set `Base URL` to the PrairieLearn URL you expect locally, such as `http://127.0.0.1:3000`.
-4. Paste a Docker start command that launches your immutable PrairieLearn container.
+4. Leave the connection mode on `Structured` and choose the local course directory to mount as `/course`.
+5. If your container needs something different, switch to `Custom` and paste the full Docker start command instead.
 
 Example:
 
 ```bash
-docker run -d --rm --name pl-review -p 3000:3000 your-prairielearn-image
+docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn
 ```
 
 The app does not modify PrairieLearn itself. Instead, it keeps a local question list where each item stores:

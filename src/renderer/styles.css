@@ -229,6 +229,69 @@ button {
   grid-column: 1 / -1;
 }
 
+.command-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(77, 61, 44, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.command-editor-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.command-mode-inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.command-mode-inline input {
+  width: auto;
+  margin: 0;
+}
+
+.command-editor.is-inactive {
+  opacity: 0.58;
+}
+
+.command-editor textarea:disabled,
+.command-editor input:disabled {
+  background: rgba(227, 221, 211, 0.72);
+  color: rgba(67, 55, 44, 0.7);
+  cursor: not-allowed;
+}
+
+.command-editor button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.inline-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.inline-input-group input {
+  flex: 1;
+}
+
+.helper-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -413,5 +476,10 @@ textarea {
 
   .viewer-column {
     min-height: 420px;
+  }
+
+  .inline-input-group {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

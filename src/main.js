@@ -9,6 +9,9 @@ const execAsync = promisify(exec);
 const SETTINGS_FILE = "settings.json";
 const DEFAULT_CONFIG = {
   baseUrl: "http://127.0.0.1:3000",
+  commandMode: "structured",
+  courseDirectory: "",
+  customStartCommand: "",
   startCommand: "",
   readyTimeoutMs: 30000
 };
@@ -24,9 +27,17 @@ function getSettingsPath() {
 
 function normalizeConfig(config = {}) {
   const readyTimeoutMs = Number(config.readyTimeoutMs) || DEFAULT_CONFIG.readyTimeoutMs;
+  const hasLegacyStartCommand =
+    typeof config.startCommand === "string" &&
+    config.startCommand.trim() &&
+    typeof config.commandMode !== "string" &&
+    typeof config.customStartCommand !== "string";
+
   return {
     ...DEFAULT_CONFIG,
     ...config,
+    commandMode: hasLegacyStartCommand ? "custom" : config.commandMode || DEFAULT_CONFIG.commandMode,
+    customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || "",
     readyTimeoutMs: Math.max(5000, readyTimeoutMs)
   };
 }
@@ -63,6 +74,19 @@ async function selectPdfFile() {
     path: filePath,
     name: path.basename(filePath)
   };
+}
+
+async function selectDirectory() {
+  const result = await dialog.showOpenDialog({
+    title: "Choose Course Directory",
+    properties: ["openDirectory"]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
 }
 
 function serializeCommandError(error) {
@@ -121,7 +145,10 @@ async function startPrairieLearn(config) {
   if (!normalized.startCommand.trim()) {
     return {
       ok: false,
-      error: "Add a Docker start command in PrairieLearn Connection before starting PrairieLearn."
+      error:
+        normalized.commandMode === "structured"
+          ? "Choose the local course directory to mount as /course before starting PrairieLearn."
+          : "Add a Docker start command in PrairieLearn Connection before starting PrairieLearn."
     };
   }
 
@@ -237,6 +264,7 @@ function stopDevWatchers() {
 }
 
 ipcMain.handle("select-pdf", async () => selectPdfFile());
+ipcMain.handle("select-directory", async () => selectDirectory());
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));
 ipcMain.handle("start-prairielearn", async (_event, config) => startPrairieLearn(config));

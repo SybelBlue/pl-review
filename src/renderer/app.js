@@ -11,6 +11,13 @@ const elements = {
   currentUrl: document.getElementById("current-url"),
   baseUrlInput: document.getElementById("base-url-input"),
   readyTimeoutInput: document.getElementById("ready-timeout-input"),
+  commandModeStructured: document.getElementById("command-mode-structured"),
+  commandModeCustom: document.getElementById("command-mode-custom"),
+  structuredCommandEditor: document.getElementById("structured-command-editor"),
+  customCommandEditor: document.getElementById("custom-command-editor"),
+  courseDirectoryInput: document.getElementById("course-directory-input"),
+  chooseCourseDirectoryButton: document.getElementById("choose-course-directory-button"),
+  generatedCommandPreview: document.getElementById("generated-command-preview"),
   startCommandInput: document.getElementById("start-command-input"),
   configPanel: document.getElementById("config-panel"),
   dropOverlay: document.getElementById("drop-overlay"),
@@ -43,6 +50,9 @@ const elements = {
 const state = {
   config: {
     baseUrl: "http://127.0.0.1:3000",
+    commandMode: "structured",
+    courseDirectory: "",
+    customStartCommand: "",
     startCommand: "",
     readyTimeoutMs: 30000
   },
@@ -145,20 +155,80 @@ function setCurrentUrl(url) {
   elements.currentUrl.textContent = url || "Not loaded";
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function getCommandModeFromForm() {
+  return elements.commandModeCustom.checked ? "custom" : "structured";
+}
+
+function buildStructuredCommand(config) {
+  const courseDirectory = (config.courseDirectory || "").trim();
+  if (!courseDirectory) {
+    return "";
+  }
+
+  return [
+    "docker run -d --rm",
+    "--name pl-review",
+    "-p 3000:3000",
+    `-v ${shellQuote(`${courseDirectory}:/course`)}`,
+    "prairielearn/prairielearn"
+  ].join(" ");
+}
+
+function updateCommandEditorState() {
+  const mode = getCommandModeFromForm();
+  const generatedCommand = buildStructuredCommand({
+    courseDirectory: elements.courseDirectoryInput.value
+  });
+
+  elements.generatedCommandPreview.value = generatedCommand || "Choose a course directory to generate the Docker command.";
+  const usingStructured = mode === "structured";
+
+  elements.structuredCommandEditor.classList.toggle("is-inactive", !usingStructured);
+  elements.customCommandEditor.classList.toggle("is-inactive", usingStructured);
+  elements.courseDirectoryInput.disabled = !usingStructured;
+  elements.chooseCourseDirectoryButton.disabled = !usingStructured;
+  elements.generatedCommandPreview.disabled = !usingStructured;
+  elements.startCommandInput.disabled = usingStructured;
+}
+
 function renderConfig() {
   elements.baseUrlInput.value = state.config.baseUrl;
   elements.readyTimeoutInput.value = String(state.config.readyTimeoutMs);
-  elements.startCommandInput.value = state.config.startCommand;
-  if (!state.config.startCommand.trim()) {
+  elements.commandModeStructured.checked = state.config.commandMode !== "custom";
+  elements.commandModeCustom.checked = state.config.commandMode === "custom";
+  elements.courseDirectoryInput.value = state.config.courseDirectory || "";
+  elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
+  updateCommandEditorState();
+
+  const structuredCommand = buildStructuredCommand(state.config);
+  const hasCommand =
+    state.config.commandMode === "custom"
+      ? Boolean((state.config.customStartCommand || state.config.startCommand || "").trim())
+      : Boolean(structuredCommand);
+
+  if (!hasCommand) {
     elements.configPanel.open = true;
   }
 }
 
 function getConfigFromForm() {
+  const commandMode = getCommandModeFromForm();
+  const courseDirectory = elements.courseDirectoryInput.value.trim();
+  const customStartCommand = elements.startCommandInput.value.trim();
+  const startCommand =
+    commandMode === "custom" ? customStartCommand : buildStructuredCommand({ courseDirectory });
+
   return {
     baseUrl: elements.baseUrlInput.value.trim() || "http://127.0.0.1:3000",
+    commandMode,
+    courseDirectory,
+    customStartCommand,
     readyTimeoutMs: Number(elements.readyTimeoutInput.value) || 30000,
-    startCommand: elements.startCommandInput.value.trim()
+    startCommand
   };
 }
 
@@ -578,6 +648,19 @@ function bindEvents() {
   elements.startConfiguredButton.addEventListener("click", async () => {
     await saveConfig();
     await startPrairieLearn();
+  });
+  elements.commandModeStructured.addEventListener("change", updateCommandEditorState);
+  elements.commandModeCustom.addEventListener("change", updateCommandEditorState);
+  elements.courseDirectoryInput.addEventListener("input", updateCommandEditorState);
+  elements.startCommandInput.addEventListener("input", updateCommandEditorState);
+  elements.chooseCourseDirectoryButton.addEventListener("click", async () => {
+    const selectedDirectory = await window.reviewApi.selectDirectory();
+    if (!selectedDirectory) {
+      return;
+    }
+
+    elements.courseDirectoryInput.value = selectedDirectory;
+    updateCommandEditorState();
   });
 
   elements.newQuestionButton.addEventListener("click", () => addQuestion(false));
