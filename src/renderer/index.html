@@ -197,23 +197,19 @@
                       </div>
                       <div class="command-editor-body flex flex-col gap-2">
                         <label class="ui-field">
-                          <span class="ui-label">Course Directory For `/course`</span>
-                          <div class="flex flex-col items-stretch gap-2 lg:flex-row lg:items-center">
-                            <input
-                              id="course-directory-input"
-                              class="ui-input ui-input-sm grow"
-                              type="text"
-                              placeholder="/absolute/path/to/course"
-                            />
-                            <button id="choose-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                              Choose Folder
+                          <span class="ui-label">Course Directories (`/course`, `/course2`, ...)</span>
+                          <div id="course-directories-zone" class="course-directories-zone">
+                            <div id="course-directories-list" class="course-directories-list" aria-live="polite"></div>
+                            <button id="add-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                              + Add Course
                             </button>
                           </div>
                         </label>
-                        <p class="helper-text mb-0 text-sm text-stone-500">
-                          The structured editor generates the Docker command for you. Only the host path mounted to `/course`
-                          needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
-                        </p>
+                      <p class="helper-text mb-0 text-sm text-stone-500">
+                        The structured editor generates the Docker command for you. Courses are mounted in order as
+                        `/course`, `/course2`, `/course3`, and so on. A temporary `pl_ag_jobs` directory is created
+                        automatically for `/jobs`.
+                      </p>
                         <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
                           <summary class="select-none font-semibold">Generated Command</summary>
                           <label class="ui-field mt-2">

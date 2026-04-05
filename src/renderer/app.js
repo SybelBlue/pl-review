@@ -37,8 +37,9 @@ const elements = {
   structuredCommandEditor: document.getElementById("structured-command-editor"),
   customCommandEditor: document.getElementById("custom-command-editor"),
   reconnectCommandEditor: document.getElementById("reconnect-command-editor"),
-  courseDirectoryInput: document.getElementById("course-directory-input"),
-  chooseCourseDirectoryButton: document.getElementById("choose-course-directory-button"),
+  courseDirectoriesZone: document.getElementById("course-directories-zone"),
+  courseDirectoriesList: document.getElementById("course-directories-list"),
+  addCourseDirectoryButton: document.getElementById("add-course-directory-button"),
   refreshRunningContainersButton: document.getElementById("refresh-running-containers-button"),
   runningContainersPreview: document.getElementById("running-containers-preview"),
   generatedCommandAccordion: document.getElementById("generated-command-accordion"),
@@ -80,6 +81,7 @@ const state = {
     baseUrl: "http://127.0.0.1:3000",
     commandMode: "structured",
     courseDirectory: "",
+    courseDirectories: [],
     jobsDirectory: "",
     customStartCommand: "",
     startCommand: ""
@@ -102,6 +104,8 @@ let isPrairieLearnCommandRunning = false;
 let isPrairieLearnStopping = false;
 let hasReconnectOptions = false;
 let hasAppliedContainerModeDefault = false;
+let draggedCourseRowIndex = null;
+const maxCourseDirectories = 10;
 
 function setPrairieLearnRunState(isRunning) {
   isPrairieLearnCommandRunning = isRunning;
@@ -431,19 +435,162 @@ function getStartButtonLabelForMode(mode) {
   return "Save + Start Generated";
 }
 
+function normalizeCourseDirectories(input) {
+  if (Array.isArray(input)) {
+    return input
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .slice(0, maxCourseDirectories);
+  }
+  return [];
+}
+
+function getCourseDirectoriesFromConfig(config) {
+  const listed = normalizeCourseDirectories(config?.courseDirectories);
+  if (listed.length > 0) {
+    return listed;
+  }
+  const legacy = String(config?.courseDirectory || "").trim();
+  return legacy ? [legacy] : [];
+}
+
+function getCourseDirectoriesFromForm() {
+  return Array.from(elements.courseDirectoriesList.querySelectorAll("[data-course-directory-input]"))
+    .map((input) => String(input.value || "").trim())
+    .filter(Boolean)
+    .slice(0, maxCourseDirectories);
+}
+
+function updateCourseDirectoryInputState(input) {
+  if (!input) {
+    return;
+  }
+  input.classList.toggle("is-empty", !String(input.value || "").trim());
+}
+
+function createCourseDirectoryRow(value = "", index = 0, total = 1) {
+  const row = document.createElement("div");
+  row.className = "course-directory-row";
+  row.dataset.courseRowIndex = String(index);
+  row.draggable = true;
+
+  const mountLabel = index === 0 ? "/course" : `/course${index + 1}`;
+
+  row.innerHTML = `
+    <span class="course-directory-handle" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
+    <span class="course-directory-mount">${mountLabel}</span>
+    <input
+      class="ui-input ui-input-sm course-directory-input"
+      data-course-directory-input="true"
+      type="text"
+      placeholder="/absolute/path/to/course"
+      value="${String(value || "").replace(/"/g, "&quot;")}"
+    />
+    <button class="button ui-folder-btn" type="button" data-course-choose title="Choose folder" aria-label="Choose folder">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v1H3z"></path>
+        <path d="M3 9h18l-1.5 9a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"></path>
+      </svg>
+    </button>
+    <button class="button ui-remove-btn" type="button" data-course-remove title="Remove course" aria-label="Remove course" ${
+      total <= 1 ? "disabled" : ""
+    }>✕</button>
+  `;
+
+  const input = row.querySelector("[data-course-directory-input]");
+  const chooseButton = row.querySelector("[data-course-choose]");
+  const removeButton = row.querySelector("[data-course-remove]");
+
+  input.addEventListener("input", () => {
+    updateCourseDirectoryInputState(input);
+    updateCommandEditorState();
+  });
+  chooseButton.addEventListener("click", async () => {
+    if (input.disabled) {
+      return;
+    }
+    const selectedDirectory = await window.reviewApi.selectDirectory();
+    if (!selectedDirectory) {
+      return;
+    }
+    input.value = selectedDirectory;
+    updateCommandEditorState();
+  });
+  removeButton.addEventListener("click", () => {
+    const rows = Array.from(elements.courseDirectoriesList.querySelectorAll(".course-directory-row"));
+    const nextValues = rows
+      .filter((entry) => entry !== row)
+      .map((entry) => entry.querySelector("[data-course-directory-input]").value);
+    renderCourseDirectoryRows(nextValues.length ? nextValues : [""]);
+    updateCommandEditorState();
+  });
+
+  row.addEventListener("dragstart", (event) => {
+    draggedCourseRowIndex = Number(row.dataset.courseRowIndex);
+    event.dataTransfer.effectAllowed = "move";
+    row.classList.add("is-dragging");
+  });
+  row.addEventListener("dragend", () => {
+    draggedCourseRowIndex = null;
+    row.classList.remove("is-dragging");
+    elements.courseDirectoriesList.querySelectorAll(".course-directory-row").forEach((entry) => {
+      entry.classList.remove("is-drag-target");
+    });
+  });
+  row.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    if (draggedCourseRowIndex === null) {
+      return;
+    }
+    row.classList.add("is-drag-target");
+  });
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("is-drag-target");
+  });
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const targetIndex = Number(row.dataset.courseRowIndex);
+    if (draggedCourseRowIndex === null || Number.isNaN(targetIndex) || targetIndex === draggedCourseRowIndex) {
+      row.classList.remove("is-drag-target");
+      return;
+    }
+    const values = Array.from(elements.courseDirectoriesList.querySelectorAll("[data-course-directory-input]")).map((entry) => entry.value);
+    const [moved] = values.splice(draggedCourseRowIndex, 1);
+    values.splice(targetIndex, 0, moved);
+    renderCourseDirectoryRows(values);
+    updateCommandEditorState();
+  });
+
+  updateCourseDirectoryInputState(input);
+  return row;
+}
+
+function renderCourseDirectoryRows(values = [""]) {
+  const normalized = values.slice(0, maxCourseDirectories);
+  const safeValues = normalized.length > 0 ? normalized : [""];
+  elements.courseDirectoriesList.innerHTML = "";
+  safeValues.forEach((value, index) => {
+    elements.courseDirectoriesList.append(createCourseDirectoryRow(value, index, safeValues.length));
+  });
+}
+
 function buildStructuredCommandParts(config) {
-  const courseDirectory = (config.courseDirectory || "").trim();
+  const courseDirectories = getCourseDirectoriesFromConfig(config);
   const jobsDirectory = (config.jobsDirectory || "").trim();
-  if (!courseDirectory) {
+  if (courseDirectories.length === 0) {
     return [];
   }
 
   const jobsDirectoryValue = jobsDirectory || "<auto-temp-pl_ag_jobs>";
+  const courseMountParts = courseDirectories.map((directory, index) => {
+    const mountPath = index === 0 ? "/course" : `/course${index + 1}`;
+    return `-v ${shellQuote(directory)}:${mountPath}`;
+  });
 
   return [
     "docker run --rm",
     "-p 3000:3000",
-    `-v ${shellQuote(courseDirectory)}:/course`,
+    ...courseMountParts,
     `-v ${shellQuote(jobsDirectoryValue)}:/jobs`,
     `-e HOST_JOBS_DIR=${shellQuote(jobsDirectoryValue)}`,
     "-v /var/run/docker.sock:/var/run/docker.sock",
@@ -459,7 +606,7 @@ function buildStructuredCommand(config) {
 
 function formatCommandPreview(parts) {
   if (!parts || parts.length === 0) {
-    return "Choose a course directory to generate the Docker command.";
+    return "Add at least one course directory to generate the Docker command.";
   }
 
   return parts.map((part, index) => (index < parts.length - 1 ? `${part} \\` : part)).join("\n");
@@ -468,7 +615,7 @@ function formatCommandPreview(parts) {
 function updateCommandEditorState() {
   const mode = getCommandModeFromForm();
   const generatedCommandParts = buildStructuredCommandParts({
-    courseDirectory: elements.courseDirectoryInput.value,
+    courseDirectories: getCourseDirectoriesFromForm(),
     jobsDirectory: state.config.jobsDirectory
   });
 
@@ -480,8 +627,15 @@ function updateCommandEditorState() {
   elements.structuredCommandEditor.classList.toggle("is-inactive", !usingStructured);
   elements.customCommandEditor.classList.toggle("is-inactive", !usingCustom);
   elements.reconnectCommandEditor.classList.toggle("is-inactive", !usingReconnect);
-  elements.courseDirectoryInput.disabled = !usingStructured;
-  elements.chooseCourseDirectoryButton.disabled = !usingStructured;
+  if (elements.addCourseDirectoryButton) {
+    elements.addCourseDirectoryButton.disabled =
+      !usingStructured || elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length >= maxCourseDirectories;
+  }
+  elements.courseDirectoriesList
+    .querySelectorAll("[data-course-directory-input], [data-course-choose], [data-course-remove]")
+    .forEach((control) => {
+      control.disabled = !usingStructured || (control.matches("[data-course-remove]") && elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length <= 1);
+    });
   elements.generatedCommandAccordion.classList.toggle("is-inactive", !usingStructured);
   elements.generatedCommandPreview.disabled = !usingStructured;
   elements.startCommandInput.disabled = !usingCustom;
@@ -496,7 +650,8 @@ function renderConfig() {
   elements.commandModeStructured.checked = state.config.commandMode === "structured";
   elements.commandModeCustom.checked = state.config.commandMode === "custom";
   elements.commandModeReconnect.checked = state.config.commandMode === "reconnect";
-  elements.courseDirectoryInput.value = state.config.courseDirectory || "";
+  const courseDirectories = getCourseDirectoriesFromConfig(state.config);
+  renderCourseDirectoryRows(courseDirectories.length > 0 ? courseDirectories : [""]);
   elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
   updateCommandEditorState();
 
@@ -515,14 +670,15 @@ function renderConfig() {
 
 function getConfigFromForm() {
   const commandMode = getCommandModeFromForm();
-  const courseDirectory = elements.courseDirectoryInput.value.trim();
+  const courseDirectories = getCourseDirectoriesFromForm();
+  const courseDirectory = courseDirectories[0] || "";
   const jobsDirectory = (state.config.jobsDirectory || "").trim();
   const customStartCommand = elements.startCommandInput.value.trim();
   const startCommand =
     commandMode === "custom"
       ? customStartCommand
       : commandMode === "structured"
-        ? buildStructuredCommand({ courseDirectory, jobsDirectory })
+        ? buildStructuredCommand({ courseDirectories, jobsDirectory })
         : "";
 
   return {
@@ -532,6 +688,7 @@ function getConfigFromForm() {
       "http://127.0.0.1:3000",
     commandMode,
     courseDirectory,
+    courseDirectories,
     jobsDirectory,
     customStartCommand,
     startCommand
@@ -1165,17 +1322,17 @@ function bindEvents() {
     updateCommandEditorState();
     await refreshRunningContainers();
   });
-  elements.courseDirectoryInput.addEventListener("input", updateCommandEditorState);
-  elements.startCommandInput.addEventListener("input", updateCommandEditorState);
-  elements.chooseCourseDirectoryButton.addEventListener("click", async () => {
-    const selectedDirectory = await window.reviewApi.selectDirectory();
-    if (!selectedDirectory) {
+  elements.addCourseDirectoryButton.addEventListener("click", () => {
+    const currentValues = Array.from(elements.courseDirectoriesList.querySelectorAll("[data-course-directory-input]")).map(
+      (entry) => entry.value
+    );
+    if (currentValues.length >= maxCourseDirectories) {
       return;
     }
-
-    elements.courseDirectoryInput.value = selectedDirectory;
+    renderCourseDirectoryRows([...currentValues, ""]);
     updateCommandEditorState();
   });
+  elements.startCommandInput.addEventListener("input", updateCommandEditorState);
   elements.refreshRunningContainersButton.addEventListener("click", refreshRunningContainers);
 
   elements.newQuestionButton.addEventListener("click", () => addQuestion(false));

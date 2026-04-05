@@ -55,9 +55,70 @@
     @apply text-sm;
   }
 
-  .ui-badge {
-    @apply inline-flex items-center rounded-full bg-stone-500 px-2 py-0.5 text-xs font-semibold text-white;
-  }
+.ui-badge {
+  @apply inline-flex items-center rounded-full bg-stone-500 px-2 py-0.5 text-xs font-semibold text-white;
+}
+
+.course-directories-zone {
+  @apply flex flex-col gap-2;
+}
+
+.course-directories-list {
+  @apply flex flex-col rounded-lg border border-stone-300/70 bg-white/70;
+  overflow: hidden;
+}
+
+.course-directory-row {
+  @apply grid items-center gap-2 p-2;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+.course-directory-row + .course-directory-row {
+  border-top: 1px solid rgba(120, 104, 90, 0.22);
+}
+
+.course-directory-row.is-dragging {
+  opacity: 0.55;
+}
+
+.course-directory-row.is-drag-target {
+  background: rgba(231, 247, 243, 0.9);
+}
+
+.course-directory-handle {
+  @apply select-none text-sm text-stone-400;
+  cursor: grab;
+  line-height: 1;
+}
+
+.course-directory-mount {
+  @apply rounded border border-stone-300/80 bg-stone-100 px-1.5 py-0.5 text-xs font-semibold text-stone-600;
+}
+
+.course-directory-input {
+  min-width: 0;
+}
+
+.course-directory-input.is-empty {
+  @apply border-red-400 ring-1 ring-red-300/60;
+}
+
+.ui-folder-btn {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-md border border-stone-300 bg-white/85 text-stone-700 transition hover:border-emerald-700/40;
+}
+
+.ui-folder-btn svg {
+  @apply fill-none stroke-current;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-remove-btn {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-md border border-stone-300 bg-white/85 text-sm text-stone-700 transition hover:border-red-500/40 hover:text-red-700;
+}
 }
 
 :root {
@@ -367,9 +428,9 @@ summary {
 }
 
 .docker-output-accordion {
-  border: 1px solid rgba(31, 36, 42, 0.7);
-  background: #11161c;
-  color: #d8dee9;
+  border: 1px solid rgba(77, 61, 44, 0.14);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--ink);
   overflow: hidden;
 }
 
@@ -378,8 +439,8 @@ summary {
   padding: 10px 12px;
   font-weight: 600;
   user-select: none;
-  color: #9fb3c8;
-  border-bottom: 1px solid rgba(120, 140, 160, 0.24);
+  color: var(--ink);
+  border-bottom: 1px solid rgba(77, 61, 44, 0.14);
 }
 
 #docker-output-log {
