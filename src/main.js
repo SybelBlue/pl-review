@@ -291,14 +291,42 @@ function runShellCommandWithStreaming(command, runState) {
   });
 }
 
-function runShellCommand(command) {
+function runShellCommand(command, options = {}) {
   return new Promise((resolve) => {
     const stdoutChunks = [];
     const stderrChunks = [];
+    let settled = false;
+    const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 0;
 
     const child = spawn(command, {
       shell: "/bin/zsh"
     });
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    let timeoutId = null;
+    if (timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        child.kill("SIGTERM");
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill("SIGKILL");
+          }
+        }, 800);
+        finish({
+          ok: false,
+          stdout: stdoutChunks.join(""),
+          stderr: `${stderrChunks.join("")}Command timed out after ${timeoutMs}ms.\n`,
+          error: "Command timed out."
+        });
+      }, timeoutMs);
+    }
 
     child.stdout.on("data", (data) => {
       stdoutChunks.push(data.toString());
@@ -309,7 +337,10 @@ function runShellCommand(command) {
     });
 
     child.on("error", (error) => {
-      resolve({
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      finish({
         ok: false,
         stdout: stdoutChunks.join(""),
         stderr: `${stderrChunks.join("")}${error.message}\n`,
@@ -318,7 +349,10 @@ function runShellCommand(command) {
     });
 
     child.on("close", (code) => {
-      resolve({
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      finish({
         ok: code === 0,
         stdout: stdoutChunks.join(""),
         stderr: stderrChunks.join(""),
@@ -326,6 +360,151 @@ function runShellCommand(command) {
       });
     });
   });
+}
+
+async function checkDockerInstalled() {
+  const result = await runShellCommand("docker --version", { timeoutMs: 4000 });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: (result.stderr || result.error || "Docker CLI is not available.").trim()
+    };
+  }
+
+  return {
+    ok: true,
+    version: (result.stdout || result.stderr || "").trim()
+  };
+}
+
+async function checkDockerDaemonRunning() {
+  // `docker ps` requires an active daemon; it is a reliable readiness signal.
+  const daemonProbe = await runShellCommand('docker ps --format "{{.ID}}"', { timeoutMs: 5000 });
+  if (!daemonProbe.ok) {
+    return {
+      ok: false,
+      error: (daemonProbe.stderr || daemonProbe.error || "Docker Engine is not reachable.").trim()
+    };
+  }
+
+  // Best-effort server version fetch; daemon readiness is determined by the probe above.
+  const versionProbe = await runShellCommand('docker version --format "{{.Server.Version}}"', { timeoutMs: 4000 });
+  const version = (versionProbe.stdout || "").trim();
+
+  return {
+    ok: true,
+    version: version && version !== "<no value>" ? version : ""
+  };
+}
+
+async function getDockerDesktopStatus() {
+  const result = await runShellCommand("docker desktop status --format json", { timeoutMs: 3500 });
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: (result.stderr || result.error || "Could not query Docker Desktop status.").trim()
+    };
+  }
+
+  const text = String(result.stdout || "").trim();
+  if (!text) {
+    return {
+      ok: false,
+      error: "Docker Desktop status command returned no output."
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      ok: true,
+      status: String(parsed?.Status || "").trim()
+    };
+  } catch (error) {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      try {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        return {
+          ok: true,
+          status: String(parsed?.Status || "").trim()
+        };
+      } catch {
+        // Fall through.
+      }
+    }
+    return {
+      ok: false,
+      error: "Docker Desktop status output could not be parsed."
+    };
+  }
+}
+
+async function focusDockerDesktop() {
+  let command = "";
+  if (process.platform === "darwin") {
+    command = "open -a Docker";
+  } else if (process.platform === "win32") {
+    command = `powershell -NoProfile -Command "Start-Process 'Docker Desktop'"`;
+  }
+  if (!command) {
+    return;
+  }
+  await runShellCommand(command, { timeoutMs: 3000 });
+}
+
+async function startDockerDaemon(mode = "start") {
+  const alreadyRunning = await checkDockerDaemonRunning();
+  if (alreadyRunning.ok) {
+    return {
+      ok: true,
+      alreadyRunning: true,
+      message: "Docker Engine is already running."
+    };
+  }
+
+  if (mode !== "restart") {
+    const desktopStatus = await getDockerDesktopStatus();
+    if (desktopStatus.ok && desktopStatus.status.toLowerCase() === "paused") {
+      await focusDockerDesktop();
+      return {
+        ok: false,
+        paused: true,
+        error:
+          "Docker Desktop is paused. Resume it in Docker Desktop to continue. Use Restart Docker Engine only if you need a full reboot."
+      };
+    }
+  }
+
+  const attempts = mode === "restart" ? ["docker desktop restart"] : ["docker desktop start"];
+  if (process.platform === "darwin") {
+    attempts.push("open -a Docker");
+  } else if (process.platform === "win32") {
+    attempts.push(`powershell -NoProfile -Command "Start-Process 'Docker Desktop'"`);
+  } else if (process.platform === "linux") {
+    attempts.push("systemctl --user start docker-desktop");
+  }
+
+  const errors = [];
+  for (const command of attempts) {
+    const result = await runShellCommand(command, { timeoutMs: 5000 });
+    if (result.ok) {
+      return {
+        ok: true,
+        alreadyRunning: false,
+        command,
+        message: "Docker Engine start command sent."
+      };
+    }
+    const errorText = (result.stderr || result.error || "Command failed.").trim();
+    errors.push(`${command}: ${errorText}`);
+  }
+
+  return {
+    ok: false,
+    error: errors.join("\n")
+  };
 }
 
 function parsePrairieLearnContainers(psOutput) {
@@ -787,6 +966,9 @@ function stopDevWatchers() {
 ipcMain.handle("select-pdf", async () => selectPdfFile());
 ipcMain.handle("select-directory", async () => selectDirectory());
 ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJobsDirectory(existingPath));
+ipcMain.handle("check-docker-installed", async () => checkDockerInstalled());
+ipcMain.handle("check-docker-daemon-running", async () => checkDockerDaemonRunning());
+ipcMain.handle("start-docker-daemon", async (_event, mode) => startDockerDaemon(mode));
 ipcMain.handle("list-prairielearn-containers", async () => listPrairieLearnContainers());
 ipcMain.handle("get-config", async () => readConfig());
 ipcMain.handle("save-config", async (_event, config) => writeConfig(config));

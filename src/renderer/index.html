@@ -164,77 +164,149 @@
               <section id="config-panel" class="config-panel">
                 <h3 class="config-panel-heading text-xl font-bold">Configure PrairieLearn Connection</h3>
                 <div class="config-panel-body">
-                    <div class="full-width command-methods">
-                      <h4 class="command-methods-heading">Connection Method</h4>
-                      <div class="command-editor-group">
-                      <div id="reconnect-command-editor" class="command-editor">
-                      <div class="command-editor-header mb-2">
-                        <label class="command-mode-inline ui-check mb-0">
-                          <input id="command-mode-reconnect" class="ui-check-input" type="radio" name="command-mode" value="reconnect" />
-                          <span>Reconnect to Running Container</span>
-                        </label>
-                      </div>
-                      <div class="command-editor-body">
-                        <p class="helper-text mb-2 text-sm text-stone-500">
-                          Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
-                          Docker and attaches if one is reachable at the configured Base URL.
-                        </p>
-                        <div class="mb-2 flex flex-wrap gap-2">
-                          <button id="refresh-running-containers-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                            Refresh Running Containers
-                          </button>
-                        </div>
-                        <pre id="running-containers-preview" class="mb-0 rounded-lg border bg-stone-100 p-2 text-sm">No running PrairieLearn containers detected yet.</pre>
-                      </div>
-                      </div>
-
-                      <div id="structured-command-editor" class="command-editor">
-                      <div class="command-editor-header mb-2">
-                        <label class="command-mode-inline ui-check mb-0">
-                          <input id="command-mode-structured" class="ui-check-input" type="radio" name="command-mode" value="structured" />
-                          <span>Create Docker Command</span>
-                        </label>
-                      </div>
-                      <div class="command-editor-body flex flex-col gap-2">
-                        <label class="ui-field">
-                          <span class="ui-label">Course Directories (`/course`, `/course2`, ...)</span>
-                          <div id="course-directories-zone" class="course-directories-zone">
-                            <div id="course-directories-list" class="course-directories-list" aria-live="polite"></div>
-                            <button id="add-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                              + Add Course
+                    <div class="full-width config-steps">
+                      <details id="config-step-docker-installed" class="config-step" open>
+                        <summary class="config-step-summary">
+                          <span id="docker-installed-step-indicator" class="config-step-indicator" aria-hidden="true">1</span>
+                          <div class="config-step-title-wrap">
+                            <h4 class="config-step-title">Check Docker Installation</h4>
+                          </div>
+                        </summary>
+                        <div class="config-step-body">
+                          <p id="docker-installed-step-status" class="config-step-status">Not checked yet.</p>
+                          <p class="helper-text text-sm text-stone-500">
+                            PrairieLearn commands require Docker CLI. We will check whether `docker` is available on your PATH.
+                          </p>
+                          <p class="helper-text text-sm text-stone-500">
+                            Need to install Docker first?
+                            <a
+                              href="https://docs.docker.com/get-started/get-docker/"
+                              data-external-link="true"
+                              rel="noopener noreferrer"
+                            >Get Docker</a>
+                            or
+                            <a
+                              href="https://docs.docker.com/desktop/"
+                              data-external-link="true"
+                              rel="noopener noreferrer"
+                            >Docker Desktop docs</a>.
+                          </p>
+                          <div class="flex flex-wrap gap-2">
+                            <button id="check-docker-installed-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                              Check Docker Installation
                             </button>
                           </div>
-                        </label>
-                      <p class="helper-text mb-0 text-sm text-stone-500">
-                        The structured editor generates the Docker command for you. Courses are mounted in order as
-                        `/course`, `/course2`, `/course3`, and so on. A temporary `pl_ag_jobs` directory is created
-                        automatically for `/jobs`.
-                      </p>
-                        <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
-                          <summary class="select-none font-semibold">Generated Command</summary>
-                          <label class="ui-field mt-2">
-                            <textarea id="generated-command-preview" class="ui-input" rows="9" readonly></textarea>
-                          </label>
-                        </details>
-                      </div>
-                      </div>
+                        </div>
+                      </details>
 
-                      <div id="custom-command-editor" class="command-editor">
-                      <div class="command-editor-header mb-2">
-                        <label class="command-mode-inline ui-check mb-0">
-                          <input id="command-mode-custom" class="ui-check-input" type="radio" name="command-mode" value="custom" />
-                          <span>Write Custom Docker Command</span>
-                        </label>
-                      </div>
-                      <div class="command-editor-body">
-                        <textarea
-                          id="start-command-input"
-                          class="ui-input font-mono"
-                          rows="3"
-                          placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
-                        ></textarea>
-                      </div>
-                      </div>
+                      <details id="config-step-docker-daemon" class="config-step">
+                        <summary class="config-step-summary">
+                          <span id="docker-daemon-step-indicator" class="config-step-indicator" aria-hidden="true">2</span>
+                          <div class="config-step-title-wrap">
+                            <h4 class="config-step-title">Check Docker Engine</h4>
+                          </div>
+                        </summary>
+                        <div class="config-step-body">
+                          <p id="docker-daemon-step-status" class="config-step-status">Waiting on step 1.</p>
+                          <p class="helper-text text-sm text-stone-500">
+                            Docker can be installed but not running. This verifies the Engine is reachable.
+                          </p>
+                          <div class="flex flex-wrap gap-2">
+                            <button id="check-docker-daemon-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                              Check Docker Engine
+                            </button>
+                            <button id="start-docker-daemon-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                              Start Docker Engine
+                            </button>
+                            <button id="restart-docker-daemon-button" class="button ui-btn ui-btn-danger ui-btn-sm" type="button">
+                              Restart Docker Engine
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details id="config-step-connection-method" class="config-step">
+                        <summary class="config-step-summary">
+                          <span id="connection-method-step-indicator" class="config-step-indicator" aria-hidden="true">3</span>
+                          <div class="config-step-title-wrap">
+                            <h4 class="config-step-title">Choose Connection Method</h4>
+                          </div>
+                        </summary>
+                        <div class="config-step-body">
+                          <p id="connection-method-step-status" class="config-step-status">Complete steps 1 and 2 to continue.</p>
+                          <div class="command-methods">
+                            <div id="connection-step-content" class="command-editor-group">
+                            <div id="reconnect-command-editor" class="command-editor">
+                            <div class="command-editor-header mb-2">
+                              <label class="command-mode-inline ui-check mb-0">
+                                <input id="command-mode-reconnect" class="ui-check-input" type="radio" name="command-mode" value="reconnect" />
+                                <span>Reconnect to Running Container</span>
+                              </label>
+                            </div>
+                            <div class="command-editor-body">
+                              <p class="helper-text mb-2 text-sm text-stone-500">
+                                Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
+                                Docker and attaches if one is reachable at the configured Base URL.
+                              </p>
+                              <div class="mb-2 flex flex-wrap gap-2">
+                                <button id="refresh-running-containers-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                                  Refresh Running Containers
+                                </button>
+                              </div>
+                              <pre id="running-containers-preview" class="mb-0 rounded-lg border bg-stone-100 p-2 text-sm">No running PrairieLearn containers detected yet.</pre>
+                            </div>
+                            </div>
+
+                            <div id="structured-command-editor" class="command-editor">
+                            <div class="command-editor-header mb-2">
+                              <label class="command-mode-inline ui-check mb-0">
+                                <input id="command-mode-structured" class="ui-check-input" type="radio" name="command-mode" value="structured" />
+                                <span>Create Docker Command</span>
+                              </label>
+                            </div>
+                            <div class="command-editor-body flex flex-col gap-2">
+                              <label class="ui-field">
+                                <span class="ui-label">Course Directories (`/course`, `/course2`, ...)</span>
+                                <div id="course-directories-zone" class="course-directories-zone">
+                                  <div id="course-directories-list" class="course-directories-list" aria-live="polite"></div>
+                                  <button id="add-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                                    + Add Course
+                                  </button>
+                                </div>
+                              </label>
+                            <p class="helper-text mb-0 text-sm text-stone-500">
+                              The structured editor generates the Docker command for you. Courses are mounted in order as
+                              `/course`, `/course2`, `/course3`, and so on. A temporary `pl_ag_jobs` directory is created
+                              automatically for `/jobs`.
+                            </p>
+                              <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
+                                <summary class="select-none font-semibold">Generated Command</summary>
+                                <label class="ui-field mt-2">
+                                  <textarea id="generated-command-preview" class="ui-input" rows="9" readonly></textarea>
+                                </label>
+                              </details>
+                            </div>
+                            </div>
+
+                            <div id="custom-command-editor" class="command-editor">
+                            <div class="command-editor-header mb-2">
+                              <label class="command-mode-inline ui-check mb-0">
+                                <input id="command-mode-custom" class="ui-check-input" type="radio" name="command-mode" value="custom" />
+                                <span>Write Custom Docker Command</span>
+                              </label>
+                            </div>
+                            <div class="command-editor-body">
+                              <textarea
+                                id="start-command-input"
+                                class="ui-input font-mono"
+                                rows="3"
+                                placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
+                              ></textarea>
+                            </div>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
                     </div>
                     <div class="config-footer-stack">
                       <details id="docker-output-accordion" class="docker-output-accordion rounded-lg border bg-stone-100/70 p-2">

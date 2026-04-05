@@ -215,6 +215,9 @@
   .start {
     inset-inline-start: var(--spacing);
   }
+  .end {
+    inset-inline-end: var(--spacing);
+  }
   .container {
     width: 100%;
     @media (width >= 40rem) {
@@ -956,6 +959,95 @@ summary {
   flex-direction: column;
   gap: 8px;
 }
+.config-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.config-step {
+  border: 1px solid rgba(77, 61, 44, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+}
+.config-step-summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+.config-step-summary::-webkit-details-marker {
+  display: none;
+}
+.config-step-title-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 26px;
+  gap: 2px;
+  min-width: 0;
+}
+.config-step-title {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--ink);
+}
+.config-step-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.config-step-body {
+  border-top: 1px solid rgba(77, 61, 44, 0.14);
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.config-step-indicator {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 61, 44, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.config-step-indicator-idle {
+  background: #cec2b5;
+  border-color: rgba(93, 77, 61, 0.35);
+  color: #4d3d2c;
+}
+.config-step-indicator-working {
+  background: #e6c58a;
+  border-color: rgba(168, 108, 28, 0.45);
+  color: #6b4518;
+}
+.config-step-indicator-success {
+  background: #2a9c64;
+  border-color: rgba(24, 100, 64, 0.55);
+  color: #f7f3eb;
+  box-shadow: 0 0 0 3px rgba(42, 156, 100, 0.18);
+}
+.config-step-indicator-error {
+  background: #c65b45;
+  border-color: rgba(130, 51, 38, 0.45);
+  color: #fff7f2;
+}
+.config-step.is-locked .config-step-body {
+  opacity: 0.56;
+}
 .command-methods-heading {
   margin: 0;
   font-size: 0.74rem;
@@ -1145,6 +1237,18 @@ summary {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.4;
+}
+a[data-external-link="true"] {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  transition: color 120ms ease, text-shadow 120ms ease;
+}
+a[data-external-link="true"]:hover,
+a[data-external-link="true"]:focus-visible {
+  color: #0f6e5f;
+  text-shadow: 0 0 8px rgba(20, 99, 86, 0.32);
 }
 label {
   display: flex;

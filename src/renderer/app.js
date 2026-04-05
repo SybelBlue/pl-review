@@ -34,6 +34,20 @@ const elements = {
   commandModeStructured: document.getElementById("command-mode-structured"),
   commandModeCustom: document.getElementById("command-mode-custom"),
   commandModeReconnect: document.getElementById("command-mode-reconnect"),
+  configStepDockerInstalled: document.getElementById("config-step-docker-installed"),
+  configStepDockerDaemon: document.getElementById("config-step-docker-daemon"),
+  configStepConnectionMethod: document.getElementById("config-step-connection-method"),
+  dockerInstalledStepIndicator: document.getElementById("docker-installed-step-indicator"),
+  dockerDaemonStepIndicator: document.getElementById("docker-daemon-step-indicator"),
+  connectionMethodStepIndicator: document.getElementById("connection-method-step-indicator"),
+  dockerInstalledStepStatus: document.getElementById("docker-installed-step-status"),
+  dockerDaemonStepStatus: document.getElementById("docker-daemon-step-status"),
+  connectionMethodStepStatus: document.getElementById("connection-method-step-status"),
+  checkDockerInstalledButton: document.getElementById("check-docker-installed-button"),
+  checkDockerDaemonButton: document.getElementById("check-docker-daemon-button"),
+  startDockerDaemonButton: document.getElementById("start-docker-daemon-button"),
+  restartDockerDaemonButton: document.getElementById("restart-docker-daemon-button"),
+  connectionStepContent: document.getElementById("connection-step-content"),
   structuredCommandEditor: document.getElementById("structured-command-editor"),
   customCommandEditor: document.getElementById("custom-command-editor"),
   reconnectCommandEditor: document.getElementById("reconnect-command-editor"),
@@ -94,7 +108,17 @@ const state = {
   prairieLearnReady: false,
   prairieLearnStatusLevel: "idle",
   isConfigOverlayOpen: true,
-  dockerLog: ""
+  dockerLog: "",
+  dockerChecks: {
+    installed: {
+      status: "idle",
+      message: "Not checked yet."
+    },
+    daemon: {
+      status: "idle",
+      message: "Waiting on step 1."
+    }
+  }
 };
 
 let pdfDropDragDepth = 0;
@@ -114,9 +138,10 @@ function setPrairieLearnRunState(isRunning) {
   if (elements.restartPlButton) {
     elements.restartPlButton.disabled = isRunning;
   }
-  elements.startConfiguredButton.disabled = isRunning;
+  syncStartButtonDisabledState();
   elements.startConfiguredButton.classList.toggle("is-loading", isRunning);
   elements.startConfiguredButton.setAttribute("aria-busy", isRunning ? "true" : "false");
+  renderConfigSteps();
   renderPrairieLearnSurface();
 }
 
@@ -200,6 +225,239 @@ function setPrairieLearnStatus(message, level = "idle") {
   state.prairieLearnStatusLevel = level;
   elements.plStatus.textContent = message;
   setIndicatorState(elements.plIndicator, level);
+}
+
+function setConfigStepIndicatorState(element, status) {
+  if (!element) {
+    return;
+  }
+
+  element.classList.remove(
+    "config-step-indicator-idle",
+    "config-step-indicator-working",
+    "config-step-indicator-success",
+    "config-step-indicator-error"
+  );
+  element.classList.add(`config-step-indicator-${status}`);
+}
+
+function areDockerPrerequisitesPassing() {
+  return state.dockerChecks.installed.status === "success" && state.dockerChecks.daemon.status === "success";
+}
+
+function syncStartButtonDisabledState() {
+  if (!elements.startConfiguredButton) {
+    return;
+  }
+
+  const disabled = isPrairieLearnCommandRunning || !areDockerPrerequisitesPassing();
+  elements.startConfiguredButton.disabled = disabled;
+  if (!areDockerPrerequisitesPassing()) {
+    elements.startConfiguredButton.title = "Complete Docker checks first.";
+  } else if (isPrairieLearnCommandRunning) {
+    elements.startConfiguredButton.title = "PrairieLearn command is running.";
+  } else {
+    elements.startConfiguredButton.title = "";
+  }
+}
+
+function syncConfigStepOpenState() {
+  if (!elements.configStepDockerInstalled || !elements.configStepDockerDaemon || !elements.configStepConnectionMethod) {
+    return;
+  }
+
+  const installedPassed = state.dockerChecks.installed.status === "success";
+  const daemonPassed = state.dockerChecks.daemon.status === "success";
+
+  if (!installedPassed) {
+    elements.configStepDockerInstalled.open = true;
+    elements.configStepDockerDaemon.open = false;
+    elements.configStepConnectionMethod.open = false;
+    return;
+  }
+
+  elements.configStepDockerInstalled.open = false;
+
+  if (!daemonPassed) {
+    elements.configStepDockerDaemon.open = true;
+    elements.configStepConnectionMethod.open = false;
+    return;
+  }
+
+  elements.configStepDockerDaemon.open = false;
+  elements.configStepConnectionMethod.open = true;
+}
+
+function renderConfigSteps() {
+  if (!elements.dockerInstalledStepIndicator || !elements.dockerDaemonStepIndicator || !elements.connectionMethodStepIndicator) {
+    return;
+  }
+
+  const installedStatus = state.dockerChecks.installed.status;
+  const daemonStatus = state.dockerChecks.daemon.status;
+  const prereqsPassed = areDockerPrerequisitesPassing();
+  const connectionStatus = state.prairieLearnReady ? "success" : isPrairieLearnCommandRunning ? "working" : "idle";
+
+  setConfigStepIndicatorState(elements.dockerInstalledStepIndicator, installedStatus);
+  setConfigStepIndicatorState(elements.dockerDaemonStepIndicator, daemonStatus);
+  setConfigStepIndicatorState(elements.connectionMethodStepIndicator, connectionStatus);
+
+  if (elements.dockerInstalledStepStatus) {
+    elements.dockerInstalledStepStatus.textContent = state.dockerChecks.installed.message;
+  }
+  if (elements.dockerDaemonStepStatus) {
+    elements.dockerDaemonStepStatus.textContent = state.dockerChecks.daemon.message;
+  }
+  if (elements.connectionMethodStepStatus) {
+    elements.connectionMethodStepStatus.textContent = prereqsPassed
+      ? state.prairieLearnReady
+        ? "Configured and connected."
+        : "Ready. Choose how to connect."
+      : "Complete steps 1 and 2 to continue.";
+  }
+
+  if (elements.configStepConnectionMethod) {
+    elements.configStepConnectionMethod.classList.toggle("is-locked", !prereqsPassed);
+  }
+  if (elements.connectionStepContent) {
+    elements.connectionStepContent.setAttribute("aria-disabled", prereqsPassed ? "false" : "true");
+  }
+  if (elements.startDockerDaemonButton) {
+    const canStart = state.dockerChecks.installed.status === "success" && state.dockerChecks.daemon.status !== "working";
+    elements.startDockerDaemonButton.disabled = !canStart;
+  }
+  if (elements.restartDockerDaemonButton) {
+    const canRestart = state.dockerChecks.installed.status === "success" && state.dockerChecks.daemon.status !== "working";
+    elements.restartDockerDaemonButton.disabled = !canRestart;
+  }
+  if (elements.checkDockerDaemonButton) {
+    elements.checkDockerDaemonButton.disabled = state.dockerChecks.installed.status !== "success" || state.dockerChecks.daemon.status === "working";
+  }
+  syncStartButtonDisabledState();
+}
+
+function setDockerCheckState(stepKey, status, message) {
+  state.dockerChecks[stepKey] = { status, message };
+  renderConfigSteps();
+}
+
+function withDockerDesktopRecommendation(message) {
+  const base = String(message || "").trim() || "Docker Engine is not reachable.";
+  if (base.toLowerCase().includes("paused")) {
+    return `${base} Open Docker Desktop and click Resume. Use Restart Docker Engine only if needed.`;
+  }
+  return `${base} Start Docker Desktop, then check Step 2 again.`;
+}
+
+async function runDockerInstalledCheck() {
+  setDockerCheckState("installed", "working", "Checking Docker installation...");
+  const result = await window.reviewApi.checkDockerInstalled();
+
+  if (result?.ok) {
+    const detail = result.version ? `Docker detected: ${result.version}` : "Docker installation check passed.";
+    setDockerCheckState("installed", "success", detail);
+    return true;
+  }
+
+  const message = result?.error || "Docker is not installed or not on PATH.";
+  setDockerCheckState("installed", "error", message);
+  return false;
+}
+
+async function runDockerDaemonCheck() {
+  if (state.dockerChecks.installed.status !== "success") {
+    setDockerCheckState("daemon", "idle", "Waiting on step 1.");
+    return false;
+  }
+
+  setDockerCheckState("daemon", "working", "Checking Docker Engine...");
+  const result = await window.reviewApi.checkDockerDaemonRunning();
+  if (result?.ok) {
+    const detail = result.version ? `Docker Engine is running (server ${result.version}).` : "Docker Engine is running.";
+    setDockerCheckState("daemon", "success", detail);
+    return true;
+  }
+
+  const message = result?.error || "Docker Engine is not reachable.";
+  setDockerCheckState("daemon", "error", withDockerDesktopRecommendation(message));
+  return false;
+}
+
+async function waitForDockerDaemonReady(maxWaitMs = 15000, intervalMs = 1000) {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    const ready = await window.reviewApi.checkDockerDaemonRunning();
+    if (ready?.ok) {
+      const detail = ready.version ? `Docker Engine is running (server ${ready.version}).` : "Docker Engine is running.";
+      setDockerCheckState("daemon", "success", detail);
+      return true;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return false;
+}
+
+async function startDockerDaemonFromStep(mode = "start") {
+  if (state.dockerChecks.installed.status !== "success") {
+    const installedOk = await runDockerInstalledCheck();
+    if (!installedOk) {
+      setDockerCheckState("daemon", "idle", "Waiting on step 1.");
+      syncConfigStepOpenState();
+      updateCommandEditorState();
+      return;
+    }
+  }
+
+  const actionLabel = mode === "restart" ? "Restarting Docker Engine..." : "Starting Docker Engine...";
+  setDockerCheckState("daemon", "working", actionLabel);
+  const started = await window.reviewApi.startDockerDaemon(mode);
+  if (!started?.ok) {
+    setDockerCheckState(
+      "daemon",
+      "error",
+      withDockerDesktopRecommendation(started?.error || "Could not start Docker Engine.")
+    );
+    syncConfigStepOpenState();
+    updateCommandEditorState();
+    return;
+  }
+
+  const waitingMessage = started.alreadyRunning
+    ? "Docker Engine already running. Verifying..."
+    : mode === "restart"
+      ? "Docker restart requested. Waiting for Engine..."
+      : "Docker start requested. Waiting for Engine...";
+  setDockerCheckState("daemon", "working", waitingMessage);
+
+  const ready = await waitForDockerDaemonReady(15000, 1000);
+  if (!ready) {
+    setDockerCheckState(
+      "daemon",
+      "error",
+      withDockerDesktopRecommendation("Docker Engine did not become ready within 15 seconds.")
+    );
+  }
+
+  syncConfigStepOpenState();
+  updateCommandEditorState();
+
+  if (areDockerPrerequisitesPassing()) {
+    await refreshRunningContainers();
+  }
+}
+
+async function ensureDockerPrerequisites() {
+  const installedOk = await runDockerInstalledCheck();
+  if (!installedOk) {
+    syncConfigStepOpenState();
+    return false;
+  }
+
+  const daemonOk = await runDockerDaemonCheck();
+  syncConfigStepOpenState();
+  return daemonOk;
 }
 
 function summarizeUrlForHint(url) {
@@ -614,6 +872,7 @@ function formatCommandPreview(parts) {
 
 function updateCommandEditorState() {
   const mode = getCommandModeFromForm();
+  const connectionUnlocked = areDockerPrerequisitesPassing();
   const generatedCommandParts = buildStructuredCommandParts({
     courseDirectories: getCourseDirectoriesFromForm(),
     jobsDirectory: state.config.jobsDirectory
@@ -629,18 +888,25 @@ function updateCommandEditorState() {
   elements.reconnectCommandEditor.classList.toggle("is-inactive", !usingReconnect);
   if (elements.addCourseDirectoryButton) {
     elements.addCourseDirectoryButton.disabled =
-      !usingStructured || elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length >= maxCourseDirectories;
+      !connectionUnlocked || !usingStructured || elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length >= maxCourseDirectories;
   }
   elements.courseDirectoriesList
     .querySelectorAll("[data-course-directory-input], [data-course-choose], [data-course-remove]")
     .forEach((control) => {
-      control.disabled = !usingStructured || (control.matches("[data-course-remove]") && elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length <= 1);
+      control.disabled =
+        !connectionUnlocked ||
+        !usingStructured ||
+        (control.matches("[data-course-remove]") && elements.courseDirectoriesList.querySelectorAll(".course-directory-row").length <= 1);
     });
   elements.generatedCommandAccordion.classList.toggle("is-inactive", !usingStructured);
-  elements.generatedCommandPreview.disabled = !usingStructured;
-  elements.startCommandInput.disabled = !usingCustom;
-  elements.refreshRunningContainersButton.disabled = !usingReconnect;
+  elements.generatedCommandPreview.disabled = !connectionUnlocked || !usingStructured;
+  elements.startCommandInput.disabled = !connectionUnlocked || !usingCustom;
+  elements.refreshRunningContainersButton.disabled = !connectionUnlocked || !usingReconnect;
+  elements.commandModeStructured.disabled = !connectionUnlocked;
+  elements.commandModeCustom.disabled = !connectionUnlocked;
+  elements.commandModeReconnect.disabled = !connectionUnlocked;
   elements.startConfiguredButton.textContent = getStartButtonLabelForMode(mode);
+  syncStartButtonDisabledState();
 }
 
 function renderConfig() {
@@ -666,6 +932,7 @@ function renderConfig() {
   if (!hasCommand) {
     setConfigOverlayOpen(true);
   }
+  renderConfigSteps();
 }
 
 function getConfigFromForm() {
@@ -696,6 +963,12 @@ function getConfigFromForm() {
 }
 
 async function refreshRunningContainers() {
+  if (!areDockerPrerequisitesPassing()) {
+    hasReconnectOptions = false;
+    elements.runningContainersPreview.textContent = "Complete Docker checks before refreshing containers.";
+    return;
+  }
+
   const listed = await window.reviewApi.listPrairieLearnContainers();
   if (!listed?.ok) {
     hasReconnectOptions = false;
@@ -1034,6 +1307,12 @@ function setPdfPage(page) {
 }
 
 async function connectPrairieLearn(mode) {
+  const hasPrerequisites = await ensureDockerPrerequisites();
+  if (!hasPrerequisites) {
+    setPrairieLearnStatus("Complete Docker setup checks first.", "error");
+    return;
+  }
+
   state.config = getConfigFromForm();
   state.config = await ensureStructuredJobsDirectory(state.config);
 
@@ -1293,6 +1572,16 @@ function bindEvents() {
     const target = state.currentPrairieLearnUrl || state.config.baseUrl;
     window.reviewApi.openExternal(target);
   });
+  document.querySelectorAll("a[data-external-link='true']").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const href = link.getAttribute("href");
+      if (!href) {
+        return;
+      }
+      window.reviewApi.openExternal(href);
+    });
+  });
   elements.plStatusToggle.addEventListener("click", () => {
     if (isPrairieLearnWaitingForConfiguration()) {
       return;
@@ -1316,6 +1605,37 @@ function bindEvents() {
     await saveConfig();
     await startPrairieLearn();
   });
+  if (elements.checkDockerInstalledButton) {
+    elements.checkDockerInstalledButton.addEventListener("click", async () => {
+      const installedOk = await runDockerInstalledCheck();
+      if (!installedOk) {
+        setDockerCheckState("daemon", "idle", "Waiting on step 1.");
+      } else if (state.dockerChecks.daemon.status !== "success") {
+        await runDockerDaemonCheck();
+      }
+      syncConfigStepOpenState();
+      updateCommandEditorState();
+    });
+  }
+  if (elements.checkDockerDaemonButton) {
+    elements.checkDockerDaemonButton.addEventListener("click", async () => {
+      const installedOk =
+        state.dockerChecks.installed.status === "success" ? true : await runDockerInstalledCheck();
+      if (!installedOk) {
+        setDockerCheckState("daemon", "idle", "Waiting on step 1.");
+      } else {
+        await runDockerDaemonCheck();
+      }
+      syncConfigStepOpenState();
+      updateCommandEditorState();
+    });
+  }
+  if (elements.startDockerDaemonButton) {
+    elements.startDockerDaemonButton.addEventListener("click", () => startDockerDaemonFromStep("start"));
+  }
+  if (elements.restartDockerDaemonButton) {
+    elements.restartDockerDaemonButton.addEventListener("click", () => startDockerDaemonFromStep("restart"));
+  }
   elements.commandModeStructured.addEventListener("change", updateCommandEditorState);
   elements.commandModeCustom.addEventListener("change", updateCommandEditorState);
   elements.commandModeReconnect.addEventListener("change", async () => {
@@ -1434,13 +1754,31 @@ async function init() {
   });
   state.config = await window.reviewApi.getConfig();
   state.config = await ensureStructuredJobsDirectory(state.config);
-  await refreshRunningContainers();
   renderDockerLog();
   renderAll();
   setCurrentUrl(state.currentPrairieLearnUrl);
   setPrairieLearnStatus(plStatusText.waitingForConfiguration, "idle");
   setConfigOverlayOpen(true);
   setPrairieLearnRunState(false);
+
+  void runInitialDockerChecks();
+}
+
+async function runInitialDockerChecks() {
+  renderConfigSteps();
+  const installedOk = await runDockerInstalledCheck();
+  if (installedOk) {
+    await runDockerDaemonCheck();
+  } else {
+    setDockerCheckState("daemon", "idle", "Waiting on step 1.");
+  }
+  syncConfigStepOpenState();
+  updateCommandEditorState();
+  if (areDockerPrerequisitesPassing()) {
+    await refreshRunningContainers();
+  } else {
+    elements.runningContainersPreview.textContent = "Complete Docker checks before listing containers.";
+  }
 }
 
 init();
