@@ -161,12 +161,12 @@
           </div>
           <div class="pane-frame webview-frame relative mt-2 grow overflow-hidden rounded-2xl border border-stone-300/25">
             <div id="pl-config-overlay" class="pl-config-overlay" hidden>
-              <section id="config-panel" class="config-panel p-2 lg:p-3">
-                <h3 class="config-panel-heading mb-3 text-xl font-bold">Configure PrairieLearn Connection</h3>
-                <div class="config-grid">
-                  <div class="full-width command-methods">
-                    <h4 class="command-methods-heading">Connection Method</h4>
-                    <div class="command-editor-group">
+              <section id="config-panel" class="config-panel">
+                <h3 class="config-panel-heading text-xl font-bold">Configure PrairieLearn Connection</h3>
+                <div class="config-panel-body">
+                    <div class="full-width command-methods">
+                      <h4 class="command-methods-heading">Connection Method</h4>
+                      <div class="command-editor-group">
                       <div id="reconnect-command-editor" class="command-editor">
                       <div class="command-editor-header mb-2">
                         <label class="command-mode-inline ui-check mb-0">
@@ -236,16 +236,18 @@
                       </div>
                       </div>
                     </div>
+                    <div class="config-footer-stack">
+                      <details id="docker-output-accordion" class="docker-output-accordion rounded-lg border bg-stone-100/70 p-2">
+                        <summary>PrairieLearn Start Output (Read-only)</summary>
+                        <pre id="docker-output-log" class="mb-0 mt-2 rounded-lg border bg-stone-100 p-2 text-sm" aria-readonly="true">No output yet.</pre>
+                      </details>
+                      <div class="config-actions flex flex-wrap justify-end gap-2">
+                        <button id="start-configured-button" class="button button-primary ui-btn ui-btn-primary font-semibold">Save + Start</button>
+                        <button id="stop-pl-button" class="button button-danger ui-btn ui-btn-danger" type="button" disabled>Stop</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="config-actions mt-3 flex flex-wrap justify-end gap-2">
-                  <button id="start-configured-button" class="button button-primary ui-btn ui-btn-primary font-semibold">Save + Start</button>
-                  <button id="stop-pl-button" class="button button-danger ui-btn ui-btn-danger" type="button" disabled>Stop</button>
-                </div>
-                <details id="docker-output-accordion" class="docker-output-accordion mt-3 rounded-lg border bg-stone-100/70 p-2">
-                  <summary>PrairieLearn Start Output (Read-only)</summary>
-                  <pre id="docker-output-log" class="mb-0 mt-2 rounded-lg border bg-stone-100 p-2 text-sm" aria-readonly="true">No output yet.</pre>
-                </details>
               </section>
             </div>
             <webview

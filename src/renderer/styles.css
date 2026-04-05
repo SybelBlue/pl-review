@@ -174,7 +174,7 @@ summary {
 
 .workspace {
   @apply grid min-h-0 grow gap-0;
-  grid-template-columns: minmax(300px, 3fr) minmax(0, 4fr) minmax(0, 5fr);
+  grid-template-columns: minmax(240px, 2.3fr) minmax(0, 4.4fr) minmax(0, 5.3fr);
 }
 
 .panel {
@@ -313,6 +313,12 @@ summary {
 
 .config-panel {
   width: 100%;
+  max-width: 1120px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
   border: 2px solid rgba(20, 99, 86, 0.35);
   background: rgba(255, 250, 241, 0.94);
   box-shadow: 0 14px 30px rgba(59, 42, 25, 0.14);
@@ -320,6 +326,42 @@ summary {
 
 .config-panel-heading {
   font-family: var(--font-display);
+  margin: 0;
+  padding: 12px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-bottom: 1px solid rgba(77, 61, 44, 0.16);
+  background: rgba(255, 250, 241, 0.98);
+  backdrop-filter: blur(4px);
+}
+
+.config-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px 12px;
+}
+
+.config-panel-body > * {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.config-footer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-footer-stack > * {
+  width: 100%;
+}
+
+.config-actions {
+  width: 100%;
 }
 
 .config-grid {
@@ -691,7 +733,6 @@ textarea {
 
 .pl-config-overlay .config-panel {
   max-height: 100%;
-  overflow: auto;
 }
 
 @media (max-width: 960px) {
