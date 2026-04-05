@@ -1,3 +1,65 @@
+@import "tailwindcss";
+@config "../../tailwind.config.cjs";
+@source "./**/*.{html,js}";
+
+@layer components {
+  .ui-btn {
+    @apply inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm transition;
+  }
+
+  .ui-btn-sm {
+    @apply px-2.5 py-1.5 text-sm;
+  }
+
+  .ui-btn-primary {
+    @apply border-emerald-700 bg-emerald-700 text-amber-50 hover:bg-emerald-800;
+  }
+
+  .ui-btn-secondary {
+    @apply border-stone-300 bg-white/80 text-stone-700 hover:border-emerald-700/40;
+  }
+
+  .ui-btn-danger {
+    @apply border-red-400/60 bg-white/80 text-red-800 hover:bg-red-50;
+  }
+
+  .ui-btn-outline-primary {
+    @apply border-emerald-500/60 bg-white/80 text-emerald-800 hover:bg-emerald-50;
+  }
+
+  .ui-field {
+    @apply flex flex-col gap-1;
+  }
+
+  .ui-label {
+    @apply mb-0 block text-sm font-semibold text-stone-500;
+  }
+
+  .ui-input {
+    @apply w-full rounded-md border border-stone-300 bg-white/90 px-3 py-2 text-stone-900;
+  }
+
+  .ui-input-sm {
+    @apply px-2.5 py-1.5 text-sm;
+  }
+
+  .ui-check {
+    @apply flex items-center gap-2;
+  }
+
+  .ui-check-input {
+    @apply mt-0 h-4 w-4 border-stone-300;
+  }
+
+  .ui-check-label {
+    @apply text-sm;
+  }
+
+  .ui-badge {
+    @apply inline-flex items-center rounded-full bg-stone-500 px-2 py-0.5 text-xs font-semibold text-white;
+  }
+}
+
 :root {
   --bg: #f5efe4;
   --paper: rgba(255, 251, 245, 0.92);
@@ -49,106 +111,34 @@ summary {
   font: inherit;
 }
 
-button,
-input,
-textarea {
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.workspace {
+  @apply grid gap-4 min-h-0 grow;
+  grid-template-columns: minmax(300px, 3fr) minmax(0, 4fr) minmax(0, 5fr);
 }
 
-button {
-  cursor: pointer;
-}
-
-.app-shell {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 100vh;
-  padding: 18px;
-}
-
-.topbar,
 .panel {
-  position: relative;
+  @apply relative;
   z-index: 1;
-}
-
-.topbar,
-.panel {
   background: var(--paper);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--shadow);
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 22px;
-  border-radius: 24px;
-}
-
-.brand h1,
-.sidebar-header h2,
-.pane-header h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  font-weight: 600;
+.sidebar,
+.viewer-column {
+  @apply min-h-0;
 }
 
 .eyebrow {
-  margin: 0 0 6px;
-  text-transform: uppercase;
+  @apply uppercase;
   letter-spacing: 0.16em;
   font-size: 0.72rem;
   color: var(--muted);
 }
 
-.toolbar-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.config-actions {
-  justify-content: flex-end;
-}
-
-.toolbar-group.compact {
-  gap: 8px;
-}
-
-.button {
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--ink);
-  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
-}
-
-.button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(20, 99, 86, 0.28);
-}
-
 .button:disabled {
-  opacity: 0.55;
-  color: rgba(80, 68, 56, 0.7);
-  background: rgba(229, 221, 210, 0.7);
-  border-color: rgba(120, 104, 90, 0.22);
-  cursor: not-allowed;
-  transform: none;
-}
-
-.button-primary {
-  background: linear-gradient(180deg, #166f61 0%, #11554a 100%);
-  color: #f7f3eb;
-  border-color: transparent;
+  @apply cursor-not-allowed opacity-60;
 }
 
 .button.is-loading {
@@ -176,44 +166,34 @@ button {
   }
 }
 
-.button-danger {
-  color: #7b2d1d;
-  border-color: rgba(161, 77, 57, 0.3);
-}
-
-#stop-pl-button {
-  color: #f7f3eb;
-  background: linear-gradient(180deg, #b24b36 0%, #8f3726 100%);
-  border-color: transparent;
-}
-
 .button.is-active {
   border-color: rgba(20, 99, 86, 0.45);
   background: rgba(232, 247, 243, 0.96);
 }
 
 .icon-button {
+  @apply inline-flex items-center justify-center p-0;
   width: 40px;
   height: 40px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.icon-button svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
+.icon-button svg,
+.status-connection-icon svg {
+  @apply fill-none stroke-current;
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+.icon-button svg {
+  padding: 0;
+  width: 20px;
+  height: 20px;
+}
+
 .status-connection-icon {
+  @apply inline-flex;
   margin-left: 4px;
-  display: inline-flex;
   width: 20px;
   height: 20px;
   color: var(--muted);
@@ -222,11 +202,6 @@ button {
 .status-connection-icon svg {
   width: 100%;
   height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .status-connection-icon .icon-connection-glow {
@@ -253,27 +228,17 @@ button {
 
 .config-panel {
   width: 100%;
-  padding: 28px;
-  border-radius: 24px;
   border: 2px solid rgba(20, 99, 86, 0.35);
   background: rgba(255, 250, 241, 0.94);
   box-shadow: 0 14px 30px rgba(59, 42, 25, 0.14);
 }
 
-.config-panel-title {
-  margin: 0;
-  font-weight: 600;
-}
-
 .config-panel-heading {
-  margin: 0 0 8px;
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  text-align: center;
 }
 
 .config-grid {
-  display: grid;
+  @apply grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 16px 0;
@@ -284,39 +249,28 @@ button {
 }
 
 .command-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid rgba(77, 61, 44, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.5);
+  @apply flex flex-col gap-2.5;
 }
 
 .command-editor-header {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
   margin-bottom: 2px;
 }
 
 .command-editor-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  @apply flex flex-col gap-2.5;
 }
 
 .command-mode-inline {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  @apply inline-flex flex-row items-center gap-2 font-semibold;
 }
 
 .command-mode-inline input {
-  width: auto;
   margin: 0;
+}
+
+.ui-check-input[type="radio"] {
+  border-radius: 50%;
 }
 
 .command-editor.is-inactive {
@@ -335,25 +289,7 @@ button {
 }
 
 .command-editor button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.generated-command-accordion {
-  border: 1px solid rgba(77, 61, 44, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.62);
-}
-
-.generated-command-accordion summary {
-  cursor: pointer;
-  padding: 10px 12px;
-  font-weight: 600;
-  user-select: none;
-}
-
-.generated-command-accordion label {
-  padding: 0 10px 10px;
+  @apply cursor-not-allowed opacity-60;
 }
 
 #generated-command-preview {
@@ -378,9 +314,7 @@ button {
 }
 
 .docker-output-accordion {
-  margin-top: 12px;
   border: 1px solid rgba(31, 36, 42, 0.7);
-  border-radius: 12px;
   background: #11161c;
   color: #d8dee9;
   overflow: hidden;
@@ -452,16 +386,6 @@ button {
 #docker-output-log .ansi-fg-14 { color: #76e3ea; }
 #docker-output-log .ansi-fg-15 { color: #e6edf3; }
 
-.inline-input-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.inline-input-group input {
-  flex: 1;
-}
-
 .helper-text {
   margin: 0;
   color: var(--muted);
@@ -470,76 +394,17 @@ button {
 }
 
 label {
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
   gap: 6px;
   font-size: 0.92rem;
-}
-
-input,
-textarea {
-  width: 100%;
-  padding: 11px 12px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--ink);
 }
 
 textarea {
   resize: vertical;
 }
 
-.workspace {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
-  min-height: 0;
-  flex: 1;
-}
-
-.sidebar,
-.viewer-column {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-radius: 26px;
-  overflow: hidden;
-}
-
-.sidebar {
-  padding: 18px;
-  gap: 14px;
-}
-
-.sidebar-header,
-.pane-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-}
-
-.sidebar-actions {
-  justify-content: space-between;
-}
-
 .question-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 160px;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.question-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  width: 100%;
-  padding: 12px 14px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.82);
+  @apply min-h-40 overflow-auto;
 }
 
 .question-item:hover,
@@ -548,41 +413,11 @@ textarea {
   background: rgba(232, 247, 243, 0.96);
 }
 
-.question-item-title {
-  font-weight: 600;
-}
-
 .question-item-meta {
   color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.question-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-}
-
-.checkbox-row {
-  flex-direction: row;
-  align-items: center;
-}
-
-.checkbox-row input {
-  width: auto;
-}
-
-.viewer-column {
-  padding: 18px;
-  gap: 14px;
 }
 
 .pane-status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
   min-height: 24px;
 }
 
@@ -591,9 +426,7 @@ textarea {
 }
 
 .pane-status-row-toggle {
-  border-radius: 12px;
-  padding: 4px 8px;
-  cursor: pointer;
+  @apply cursor-pointer;
   transition: background 120ms ease, border-color 120ms ease;
 }
 
@@ -607,8 +440,8 @@ textarea {
 }
 
 .pane-status-row-toggle.is-disabled {
+  @apply cursor-not-allowed;
   opacity: 0.78;
-  cursor: not-allowed;
 }
 
 .pane-status-row-toggle.is-disabled:hover {
@@ -616,9 +449,6 @@ textarea {
 }
 
 .pane-status-text {
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: var(--muted);
   overflow-wrap: anywhere;
 }
 
@@ -654,31 +484,8 @@ textarea {
   box-shadow: 0 0 0 3px rgba(168, 59, 48, 0.12);
 }
 
-.status-hint {
-  max-width: 240px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px dashed rgba(77, 61, 44, 0.24);
-  color: var(--muted);
-  font-size: 0.76rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: help;
-}
-
-.status-hint-inline {
-  margin-right: 4px;
-}
-
-.status-hint.is-active {
-  border-style: solid;
-  color: #59483a;
-}
-
 .tooltip-anchor {
-  position: relative;
-  display: inline-flex;
+  @apply relative inline-flex;
 }
 
 .tooltip-popup {
@@ -708,27 +515,12 @@ textarea {
 }
 
 .pane-frame {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  border: 1px solid rgba(77, 61, 44, 0.12);
-  border-radius: 22px;
-  overflow: hidden;
+  @apply min-h-0;
   background: rgba(255, 255, 255, 0.78);
 }
 
-#pdf-frame,
-#prairielearn-view {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: white;
-}
-
 .pdf-overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
+  @apply absolute inset-0 grid;
   place-items: center;
   padding: 22px;
   background: rgba(247, 243, 236, 0.95);
@@ -738,7 +530,6 @@ textarea {
 .pdf-drop-zone {
   width: 100%;
   max-width: 520px;
-  padding: 28px;
   border-radius: 24px;
   border: 2px dashed rgba(20, 99, 86, 0.35);
   background: rgba(255, 250, 241, 0.94);
@@ -764,15 +555,12 @@ textarea {
 }
 
 .webview-frame {
-  position: relative;
   background: #f9f8f4;
 }
 
 .pl-config-overlay {
-  position: absolute;
-  inset: 0;
+  @apply absolute inset-0 grid;
   z-index: 2;
-  display: grid;
   place-items: center;
   padding: 22px;
   background: rgba(247, 243, 236, 0.95);
@@ -788,62 +576,12 @@ textarea {
   overflow: auto;
 }
 
-.page-input {
-  width: 76px;
-  text-align: center;
-}
-
-@media (max-width: 1480px) {
-  .workspace {
-    grid-template-columns: 320px minmax(0, 1fr);
-    grid-template-areas:
-      "sidebar sidebar"
-      "pdf pl";
-  }
-
-  .sidebar {
-    grid-area: sidebar;
-  }
-
-  .workspace > section:first-of-type {
-    grid-area: pdf;
-  }
-
-  .workspace > section:last-of-type {
-    grid-area: pl;
-  }
-}
-
 @media (max-width: 960px) {
-  .app-shell {
-    padding: 12px;
-  }
-
-  .topbar,
-  .pane-header,
-  .sidebar-header {
-    grid-template-columns: 1fr;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .config-grid,
   .workspace {
     grid-template-columns: 1fr;
   }
 
-  .workspace {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .viewer-column {
-    min-height: 420px;
-  }
-
-  .inline-input-group {
-    flex-direction: column;
-    align-items: stretch;
+  .config-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -8,94 +8,99 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PrairieLearn Review Desktop</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.processed.css" />
   </head>
-  <body>
-    <div class="app-shell">
-      <main class="workspace">
-        <aside class="sidebar panel">
-          <div class="sidebar-header">
+  <body class="bg-stone-100">
+    <div class="relative flex min-h-screen w-full flex-col px-3 py-3 xl:px-4">
+      <main class="workspace flex-grow-1">
+        <aside class="sidebar panel flex flex-col gap-3 rounded-2xl p-3 shadow-sm">
+          <div class="sidebar-header flex items-start justify-between gap-2">
             <div>
-              <h1 class="eyebrow">Question Map</h1>
+              <h1 class="eyebrow mb-0 font-semibold text-stone-500">Question Map</h1>
             </div>
-            <div class="toolbar-group compact">
-              <button id="previous-question-button" class="button">Prev</button>
-              <button id="next-question-button" class="button">Next</button>
+            <div class="flex flex-wrap gap-2">
+              <button id="previous-question-button" class="button ui-btn ui-btn-secondary ui-btn-sm">Prev</button>
+              <button id="next-question-button" class="button ui-btn ui-btn-secondary ui-btn-sm">Next</button>
             </div>
           </div>
 
-          <div class="toolbar-group sidebar-actions">
-            <button id="new-question-button" class="button button-primary">New Question</button>
-            <button id="capture-view-button" class="button">Capture Current View</button>
-            <button id="delete-question-button" class="button button-danger">Delete</button>
+          <div class="grid gap-2">
+            <button id="new-question-button" class="button button-primary ui-btn ui-btn-primary font-semibold">New Question</button>
+            <button id="capture-view-button" class="button ui-btn ui-btn-secondary">Capture Current View</button>
+            <button id="delete-question-button" class="button button-danger ui-btn ui-btn-danger">Delete</button>
           </div>
 
-          <div id="question-list" class="question-list"></div>
+          <div id="question-list" class="question-list mb-1"></div>
 
-          <form id="question-form" class="question-form">
-            <label>
-              <span>Label</span>
-              <input id="question-title-input" type="text" placeholder="Question 1" />
+          <form id="question-form" class="question-form flex flex-col gap-2 mt-1">
+            <label class="ui-field">
+              <span class="ui-label">Label</span>
+              <input id="question-title-input" class="ui-input ui-input-sm" type="text" placeholder="Question 1" />
             </label>
-            <label>
-              <span>PrairieLearn Path or URL</span>
-              <input id="question-path-input" type="text" placeholder="/course_instance/..." />
+            <label class="ui-field">
+              <span class="ui-label">PrairieLearn Path or URL</span>
+              <input id="question-path-input" class="ui-input ui-input-sm" type="text" placeholder="/course_instance/..." />
             </label>
-            <label>
-              <span>PDF Page</span>
-              <input id="question-pdf-page-input" type="number" min="1" step="1" />
+            <label class="ui-field">
+              <span class="ui-label">PDF Page</span>
+              <input id="question-pdf-page-input" class="ui-input ui-input-sm" type="number" min="1" step="1" />
             </label>
-            <label>
-              <span>Tags</span>
-              <input id="question-tags-input" type="text" placeholder="translation, rubric" />
+            <label class="ui-field">
+              <span class="ui-label">Tags</span>
+              <input id="question-tags-input" class="ui-input ui-input-sm" type="text" placeholder="translation, rubric" />
             </label>
-            <label class="checkbox-row">
-              <input id="question-flagged-input" type="checkbox" />
-              <span>Flag for follow-up</span>
+            <label class="ui-check">
+              <input id="question-flagged-input" class="ui-check-input" type="checkbox" />
+              <span class="ui-check-label">Flag for follow-up</span>
             </label>
-            <label>
-              <span>Notes</span>
-              <textarea id="question-notes-input" rows="6" placeholder="Observations, issues, grading notes..."></textarea>
+            <label class="ui-field">
+              <span class="ui-label">Notes</span>
+              <textarea
+                id="question-notes-input"
+                class="ui-input"
+                rows="6"
+                placeholder="Observations, issues, grading notes..."
+              ></textarea>
             </label>
           </form>
         </aside>
 
-        <section class="viewer-column panel">
-          <div class="pane-header">
+        <section class="viewer-column panel flex flex-col rounded-2xl p-3 shadow-sm">
+          <div class="pane-header flex items-start justify-between gap-2">
             <div>
-              <h1 class="eyebrow">Assessment PDF</h1>
+              <h1 class="eyebrow mb-0 font-semibold text-stone-500">Assessment PDF</h1>
             </div>
-            <div class="toolbar-group compact">
-              <button id="apply-page-button" class="button">Use For Question</button>
+            <div class="flex flex-wrap gap-2">
+              <button id="apply-page-button" class="button ui-btn ui-btn-outline-primary ui-btn-sm">Use For Question</button>
             </div>
           </div>
-          <div class="pane-frame">
+          <div class="pane-frame relative mt-2 grow overflow-hidden rounded-2xl border border-stone-300/25">
             <div id="pdf-overlay" class="pdf-overlay">
-              <div id="pdf-drop-zone" class="pdf-drop-zone">
-                <h1 class="eyebrow">Assessment PDF</h1>
-                <h3>Load A PDF To Start Review</h3>
-                <p>Drop a single PDF here or choose one from disk.</p>
-                <button id="choose-pdf-button" class="button button-primary" type="button">Choose PDF</button>
+              <div id="pdf-drop-zone" class="pdf-drop-zone text-center p-4 lg:p-5">
+                <h1 class="eyebrow mb-2 font-semibold text-stone-500">Assessment PDF</h1>
+                <h3 class="mb-2 text-xl font-semibold">Load A PDF To Start Review</h3>
+                <p class="mb-3 text-stone-500">Drop a single PDF here or choose one from disk.</p>
+                <button id="choose-pdf-button" class="button button-primary ui-btn ui-btn-primary px-4" type="button">Choose PDF</button>
               </div>
             </div>
-            <iframe id="pdf-frame" title="Assessment PDF"></iframe>
+            <iframe id="pdf-frame" class="h-full w-full border-0" title="Assessment PDF"></iframe>
           </div>
         </section>
 
-        <section class="viewer-column panel">
-          <div class="pane-header">
+        <section class="viewer-column panel flex flex-col rounded-2xl p-3 shadow-sm">
+          <div class="pane-header flex items-start justify-between gap-2">
             <div
               id="pl-status-toggle"
-              class="pane-status-row pane-status-row-toggle"
+              class="pane-status-row pane-status-row-toggle flex items-center gap-2 rounded-lg border px-2 py-1"
               aria-live="polite"
               role="button"
               tabindex="0"
               aria-label="Connection required"
               aria-pressed="true"
             >
-              <h1 class="eyebrow">PrairieLearn</h1>
+              <h1 class="eyebrow mb-0 font-semibold text-stone-500">PrairieLearn</h1>
               <span id="pl-indicator" class="indicator-light indicator-idle" aria-hidden="true"></span>
-              <strong id="pl-status" class="pane-status-text">waiting</strong>
+              <strong id="pl-status" class="pane-status-text ui-badge">waiting</strong>
               <span id="pl-connection-icon" class="status-connection-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle class="icon-connection-glow" cx="8" cy="8" r="3"></circle>
@@ -109,11 +114,11 @@
                 </svg>
               </span>
             </div>
-            <div class="toolbar-group compact">
+            <div class="flex flex-wrap gap-2">
               <span class="tooltip-anchor">
                 <button
                   id="open-browser-button"
-                  class="button icon-button"
+                  class="button icon-button ui-btn ui-btn-secondary ui-btn-sm"
                   type="button"
                   aria-label="Open in browser"
                   title="Open in browser"
@@ -126,19 +131,37 @@
                 </button>
                 <span class="tooltip-popup" role="tooltip">Opens this URL in your default browser.</span>
               </span>
-              <button id="webview-back-button" class="button icon-button" type="button" aria-label="Back" title="Back">
+              <button
+                id="webview-back-button"
+                class="button icon-button ui-btn ui-btn-secondary ui-btn-sm"
+                type="button"
+                aria-label="Back"
+                title="Back"
+              >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M14 6L8 12L14 18"></path>
                   <path d="M9 12H20"></path>
                 </svg>
               </button>
-              <button id="webview-forward-button" class="button icon-button" type="button" aria-label="Forward" title="Forward">
+              <button
+                id="webview-forward-button"
+                class="button icon-button ui-btn ui-btn-secondary ui-btn-sm"
+                type="button"
+                aria-label="Forward"
+                title="Forward"
+              >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M10 6L16 12L10 18"></path>
                   <path d="M4 12H15"></path>
                 </svg>
               </button>
-              <button id="webview-reload-button" class="button icon-button" type="button" aria-label="Reload" title="Reload">
+              <button
+                id="webview-reload-button"
+                class="button icon-button ui-btn ui-btn-secondary ui-btn-sm"
+                type="button"
+                aria-label="Reload"
+                title="Reload"
+              >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20 12a8 8 0 1 1-2.35-5.66"></path>
                   <path d="M20 4v6h-6"></path>
@@ -146,86 +169,97 @@
               </button>
             </div>
           </div>
-          <div class="pane-frame webview-frame">
+          <div class="pane-frame webview-frame relative mt-2 grow overflow-hidden rounded-2xl border border-stone-300/25">
             <div id="pl-config-overlay" class="pl-config-overlay" hidden>
-              <section id="config-panel" class="config-panel">
-                <h3 class="config-panel-heading">Configure PrairieLearn Connection</h3>
+              <section id="config-panel" class="config-panel p-2 lg:p-3">
+                <h3 class="config-panel-heading mb-3 text-xl font-bold">Configure PrairieLearn Connection</h3>
                 <div class="config-grid">
-                  <div id="reconnect-command-editor" class="full-width command-editor">
-                    <div class="command-editor-header">
-                      <label class="command-mode-inline">
-                        <input id="command-mode-reconnect" type="radio" name="command-mode" value="reconnect" />
+                  <div id="reconnect-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
+                    <div class="command-editor-header mb-2">
+                      <label class="command-mode-inline ui-check mb-0">
+                        <input id="command-mode-reconnect" class="ui-check-input" type="radio" name="command-mode" value="reconnect" />
                         <span>Reconnect to Running Container</span>
                       </label>
                     </div>
                     <div class="command-editor-body">
-                      <p class="helper-text">
+                      <p class="helper-text mb-2 text-sm text-stone-500">
                         Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
                         Docker and attaches if one is reachable at the configured Base URL.
                       </p>
-                      <div class="toolbar-group compact">
-                        <button id="refresh-running-containers-button" class="button" type="button">Refresh Running Containers</button>
+                      <div class="mb-2 flex flex-wrap gap-2">
+                        <button id="refresh-running-containers-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                          Refresh Running Containers
+                        </button>
                       </div>
-                      <pre id="running-containers-preview">No running PrairieLearn containers detected yet.</pre>
+                      <pre id="running-containers-preview" class="mb-0 rounded-lg border bg-stone-100 p-2 text-sm">No running PrairieLearn containers detected yet.</pre>
                     </div>
                   </div>
 
-                  <div id="structured-command-editor" class="full-width command-editor">
-                    <div class="command-editor-header">
-                      <label class="command-mode-inline">
-                        <input id="command-mode-structured" type="radio" name="command-mode" value="structured" />
+                  <div id="structured-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
+                    <div class="command-editor-header mb-2">
+                      <label class="command-mode-inline ui-check mb-0">
+                        <input id="command-mode-structured" class="ui-check-input" type="radio" name="command-mode" value="structured" />
                         <span>Create Docker Command</span>
                       </label>
                     </div>
-                    <div class="command-editor-body">
-                      <label>
-                        <span>Course Directory For `/course`</span>
-                        <div class="inline-input-group">
-                          <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
-                          <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
+                    <div class="command-editor-body flex flex-col gap-2">
+                      <label class="ui-field">
+                        <span class="ui-label">Course Directory For `/course`</span>
+                        <div class="flex flex-col items-stretch gap-2 lg:flex-row lg:items-center">
+                          <input
+                            id="course-directory-input"
+                            class="ui-input ui-input-sm grow"
+                            type="text"
+                            placeholder="/absolute/path/to/course"
+                          />
+                          <button id="choose-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                            Choose Folder
+                          </button>
                         </div>
                       </label>
-                      <p class="helper-text">
+                      <p class="helper-text mb-0 text-sm text-stone-500">
                         The structured editor generates the Docker command for you. Only the host path mounted to `/course`
                         needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
                       </p>
-                      <details id="generated-command-accordion" class="generated-command-accordion">
-                        <summary>Generated Command</summary>
-                        <label>
-                          <textarea id="generated-command-preview" rows="9" readonly></textarea>
+                      <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
+                        <summary class="select-none font-semibold">Generated Command</summary>
+                        <label class="ui-field mt-2">
+                          <textarea id="generated-command-preview" class="ui-input" rows="9" readonly></textarea>
                         </label>
                       </details>
                     </div>
                   </div>
 
-                  <div id="custom-command-editor" class="full-width command-editor">
-                    <div class="command-editor-header">
-                      <label class="command-mode-inline">
-                        <input id="command-mode-custom" type="radio" name="command-mode" value="custom" />
+                  <div id="custom-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
+                    <div class="command-editor-header mb-2">
+                      <label class="command-mode-inline ui-check mb-0">
+                        <input id="command-mode-custom" class="ui-check-input" type="radio" name="command-mode" value="custom" />
                         <span>Write Custom Docker Command</span>
                       </label>
                     </div>
                     <div class="command-editor-body">
                       <textarea
                         id="start-command-input"
+                        class="ui-input font-mono"
                         rows="3"
                         placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
                       ></textarea>
                     </div>
                   </div>
                 </div>
-                <div class="toolbar-group config-actions">
-                  <button id="start-configured-button" class="button button-primary">Save + Start</button>
-                  <button id="stop-pl-button" class="button button-danger" type="button" disabled>Stop</button>
+                <div class="config-actions mt-3 flex flex-wrap justify-end gap-2">
+                  <button id="start-configured-button" class="button button-primary ui-btn ui-btn-primary font-semibold">Save + Start</button>
+                  <button id="stop-pl-button" class="button button-danger ui-btn ui-btn-danger" type="button" disabled>Stop</button>
                 </div>
-                <details id="docker-output-accordion" class="docker-output-accordion">
+                <details id="docker-output-accordion" class="docker-output-accordion mt-3 rounded-lg border bg-stone-100/70 p-2">
                   <summary>PrairieLearn Start Output (Read-only)</summary>
-                  <pre id="docker-output-log" aria-readonly="true">No output yet.</pre>
+                  <pre id="docker-output-log" class="mb-0 mt-2 rounded-lg border bg-stone-100 p-2 text-sm" aria-readonly="true">No output yet.</pre>
                 </details>
               </section>
             </div>
             <webview
               id="prairielearn-view"
+              class="h-full w-full border-0 bg-white"
               partition="persist:prairielearn-review"
               src="about:blank"
               webpreferences="contextIsolation=yes"
@@ -237,9 +271,9 @@
     </div>
 
     <template id="question-item-template">
-      <button class="question-item" type="button">
-        <span class="question-item-title"></span>
-        <span class="question-item-meta"></span>
+      <button class="question-item flex flex-col items-start gap-1 rounded-md border border-stone-300 bg-white/80 px-3 py-2 text-left transition" type="button">
+        <span class="question-item-title font-semibold"></span>
+        <span class="question-item-meta text-sm text-stone-500"></span>
       </button>
     </template>
 
