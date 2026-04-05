@@ -23,7 +23,6 @@ const elements = {
   stopPlButton: document.getElementById("stop-pl-button"),
   openBrowserButton: document.getElementById("open-browser-button"),
   plStatusToggle: document.getElementById("pl-status-toggle"),
-  plConnectionIcon: document.getElementById("pl-connection-icon"),
   saveConfigButton: document.getElementById("save-config-button"),
   startConfiguredButton: document.getElementById("start-configured-button"),
   pdfName: document.getElementById("pdf-name"),
@@ -256,7 +255,6 @@ function renderPrairieLearnSurface() {
   elements.plStatusToggle.setAttribute("aria-disabled", forcedOverlay ? "true" : "false");
   elements.plStatusToggle.classList.toggle("is-disabled", forcedOverlay);
   elements.plStatusToggle.classList.toggle("is-active", showOverlay);
-  elements.plConnectionIcon.classList.toggle("is-connected", state.prairieLearnReady);
 
   updateWebviewNavigationButtons();
 }

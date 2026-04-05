@@ -112,22 +112,46 @@ summary {
 }
 
 .workspace {
-  @apply grid gap-4 min-h-0 grow;
+  @apply grid min-h-0 grow gap-0;
   grid-template-columns: minmax(300px, 3fr) minmax(0, 4fr) minmax(0, 5fr);
 }
 
 .panel {
   @apply relative;
   z-index: 1;
-  background: var(--paper);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: var(--shadow);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.workspace > .panel + .panel {
+  border-left: 1px solid rgba(77, 61, 44, 0.2);
 }
 
 .sidebar,
 .viewer-column {
   @apply min-h-0;
+}
+
+.sidebar-header,
+.pane-header {
+  min-height: 56px;
+}
+
+.sidebar-header .button,
+.pane-header .button {
+  @apply h-9 rounded-md border-stone-300 bg-white/80 text-sm text-stone-700;
+}
+
+.sidebar-header .button:hover,
+.pane-header .button:hover {
+  @apply border-emerald-700/40;
+}
+
+.sidebar-header .icon-button,
+.pane-header .icon-button {
+  @apply h-9 w-9 px-0;
 }
 
 .eyebrow {
@@ -248,17 +272,46 @@ summary {
   grid-column: 1 / -1;
 }
 
+.command-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-methods-heading {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.command-editor-group {
+  border: 1px solid rgba(77, 61, 44, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  overflow: hidden;
+}
+
 .command-editor {
   @apply flex flex-col gap-2.5;
+  padding: 10px 12px;
+}
+
+.command-editor + .command-editor {
+  border-top: 1px solid rgba(77, 61, 44, 0.14);
 }
 
 .command-editor-header {
   @apply flex items-center;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .command-editor-body {
   @apply flex flex-col gap-2.5;
+  margin-top: 8px;
+  padding-left: 24px;
 }
 
 .command-mode-inline {
@@ -405,6 +458,10 @@ textarea {
 
 .question-list {
   @apply min-h-40 overflow-auto;
+}
+
+.sidebar-body {
+  @apply min-h-0;
 }
 
 .question-item:hover,
@@ -583,5 +640,10 @@ textarea {
 
   .config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace > .panel + .panel {
+    border-left: 0;
+    border-top: 1px solid rgba(77, 61, 44, 0.2);
   }
 }

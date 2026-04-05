@@ -11,10 +11,10 @@
     <link rel="stylesheet" href="./styles.processed.css" />
   </head>
   <body class="bg-stone-100">
-    <div class="relative flex min-h-screen w-full flex-col px-3 py-3 xl:px-4">
-      <main class="workspace flex-grow-1">
-        <aside class="sidebar panel flex flex-col gap-3 rounded-2xl p-3 shadow-sm">
-          <div class="sidebar-header flex items-start justify-between gap-2">
+    <div class="relative flex min-h-screen w-full flex-col px-2 py-2 md:px-3">
+      <main class="workspace grow">
+        <aside class="sidebar panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+          <div class="sidebar-header flex items-center justify-between gap-2">
             <div>
               <h1 class="eyebrow mb-0 font-semibold text-stone-500">Question Map</h1>
             </div>
@@ -24,49 +24,51 @@
             </div>
           </div>
 
-          <div class="grid gap-2">
-            <button id="new-question-button" class="button button-primary ui-btn ui-btn-primary font-semibold">New Question</button>
-            <button id="capture-view-button" class="button ui-btn ui-btn-secondary">Capture Current View</button>
-            <button id="delete-question-button" class="button button-danger ui-btn ui-btn-danger">Delete</button>
+          <div class="sidebar-body flex min-h-0 grow flex-col gap-2 md:gap-3">
+            <div class="grid gap-2">
+              <button id="new-question-button" class="button button-primary ui-btn ui-btn-primary font-semibold">New Question</button>
+              <button id="capture-view-button" class="button ui-btn ui-btn-secondary">Capture Current View</button>
+              <button id="delete-question-button" class="button button-danger ui-btn ui-btn-danger">Delete</button>
+            </div>
+
+            <div id="question-list" class="question-list mb-1"></div>
+
+            <form id="question-form" class="question-form flex flex-col gap-2 mt-1">
+              <label class="ui-field">
+                <span class="ui-label">Label</span>
+                <input id="question-title-input" class="ui-input ui-input-sm" type="text" placeholder="Question 1" />
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">PrairieLearn Path or URL</span>
+                <input id="question-path-input" class="ui-input ui-input-sm" type="text" placeholder="/course_instance/..." />
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">PDF Page</span>
+                <input id="question-pdf-page-input" class="ui-input ui-input-sm" type="number" min="1" step="1" />
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">Tags</span>
+                <input id="question-tags-input" class="ui-input ui-input-sm" type="text" placeholder="translation, rubric" />
+              </label>
+              <label class="ui-check">
+                <input id="question-flagged-input" class="ui-check-input" type="checkbox" />
+                <span class="ui-check-label">Flag for follow-up</span>
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">Notes</span>
+                <textarea
+                  id="question-notes-input"
+                  class="ui-input"
+                  rows="6"
+                  placeholder="Observations, issues, grading notes..."
+                ></textarea>
+              </label>
+            </form>
           </div>
-
-          <div id="question-list" class="question-list mb-1"></div>
-
-          <form id="question-form" class="question-form flex flex-col gap-2 mt-1">
-            <label class="ui-field">
-              <span class="ui-label">Label</span>
-              <input id="question-title-input" class="ui-input ui-input-sm" type="text" placeholder="Question 1" />
-            </label>
-            <label class="ui-field">
-              <span class="ui-label">PrairieLearn Path or URL</span>
-              <input id="question-path-input" class="ui-input ui-input-sm" type="text" placeholder="/course_instance/..." />
-            </label>
-            <label class="ui-field">
-              <span class="ui-label">PDF Page</span>
-              <input id="question-pdf-page-input" class="ui-input ui-input-sm" type="number" min="1" step="1" />
-            </label>
-            <label class="ui-field">
-              <span class="ui-label">Tags</span>
-              <input id="question-tags-input" class="ui-input ui-input-sm" type="text" placeholder="translation, rubric" />
-            </label>
-            <label class="ui-check">
-              <input id="question-flagged-input" class="ui-check-input" type="checkbox" />
-              <span class="ui-check-label">Flag for follow-up</span>
-            </label>
-            <label class="ui-field">
-              <span class="ui-label">Notes</span>
-              <textarea
-                id="question-notes-input"
-                class="ui-input"
-                rows="6"
-                placeholder="Observations, issues, grading notes..."
-              ></textarea>
-            </label>
-          </form>
         </aside>
 
-        <section class="viewer-column panel flex flex-col rounded-2xl p-3 shadow-sm">
-          <div class="pane-header flex items-start justify-between gap-2">
+        <section class="viewer-column panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+          <div class="pane-header flex items-center justify-between gap-2">
             <div>
               <h1 class="eyebrow mb-0 font-semibold text-stone-500">Assessment PDF</h1>
             </div>
@@ -87,8 +89,8 @@
           </div>
         </section>
 
-        <section class="viewer-column panel flex flex-col rounded-2xl p-3 shadow-sm">
-          <div class="pane-header flex items-start justify-between gap-2">
+        <section class="viewer-column panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+          <div class="pane-header flex items-center justify-between gap-2">
             <div
               id="pl-status-toggle"
               class="pane-status-row pane-status-row-toggle flex items-center gap-2 rounded-lg border px-2 py-1"
@@ -101,18 +103,6 @@
               <h1 class="eyebrow mb-0 font-semibold text-stone-500">PrairieLearn</h1>
               <span id="pl-indicator" class="indicator-light indicator-idle" aria-hidden="true"></span>
               <strong id="pl-status" class="pane-status-text ui-badge">waiting</strong>
-              <span id="pl-connection-icon" class="status-connection-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle class="icon-connection-glow" cx="8" cy="8" r="3"></circle>
-                  <path d="M9 3v5"></path>
-                  <path d="M15 3v5"></path>
-                  <path d="M7 8h10v3a5 5 0 0 1-10 0z"></path>
-                  <path d="M8 16v2"></path>
-                  <path d="M16 16v2"></path>
-                  <path d="M8 18h8"></path>
-                  <path class="icon-connection-cut" d="M4 20L20 4"></path>
-                </svg>
-              </span>
             </div>
             <div class="flex flex-wrap gap-2">
               <span class="tooltip-anchor">
@@ -174,76 +164,81 @@
               <section id="config-panel" class="config-panel p-2 lg:p-3">
                 <h3 class="config-panel-heading mb-3 text-xl font-bold">Configure PrairieLearn Connection</h3>
                 <div class="config-grid">
-                  <div id="reconnect-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
-                    <div class="command-editor-header mb-2">
-                      <label class="command-mode-inline ui-check mb-0">
-                        <input id="command-mode-reconnect" class="ui-check-input" type="radio" name="command-mode" value="reconnect" />
-                        <span>Reconnect to Running Container</span>
-                      </label>
-                    </div>
-                    <div class="command-editor-body">
-                      <p class="helper-text mb-2 text-sm text-stone-500">
-                        Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
-                        Docker and attaches if one is reachable at the configured Base URL.
-                      </p>
-                      <div class="mb-2 flex flex-wrap gap-2">
-                        <button id="refresh-running-containers-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                          Refresh Running Containers
-                        </button>
+                  <div class="full-width command-methods">
+                    <h4 class="command-methods-heading">Connection Method</h4>
+                    <div class="command-editor-group">
+                      <div id="reconnect-command-editor" class="command-editor">
+                      <div class="command-editor-header mb-2">
+                        <label class="command-mode-inline ui-check mb-0">
+                          <input id="command-mode-reconnect" class="ui-check-input" type="radio" name="command-mode" value="reconnect" />
+                          <span>Reconnect to Running Container</span>
+                        </label>
                       </div>
-                      <pre id="running-containers-preview" class="mb-0 rounded-lg border bg-stone-100 p-2 text-sm">No running PrairieLearn containers detected yet.</pre>
-                    </div>
-                  </div>
-
-                  <div id="structured-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
-                    <div class="command-editor-header mb-2">
-                      <label class="command-mode-inline ui-check mb-0">
-                        <input id="command-mode-structured" class="ui-check-input" type="radio" name="command-mode" value="structured" />
-                        <span>Create Docker Command</span>
-                      </label>
-                    </div>
-                    <div class="command-editor-body flex flex-col gap-2">
-                      <label class="ui-field">
-                        <span class="ui-label">Course Directory For `/course`</span>
-                        <div class="flex flex-col items-stretch gap-2 lg:flex-row lg:items-center">
-                          <input
-                            id="course-directory-input"
-                            class="ui-input ui-input-sm grow"
-                            type="text"
-                            placeholder="/absolute/path/to/course"
-                          />
-                          <button id="choose-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                            Choose Folder
+                      <div class="command-editor-body">
+                        <p class="helper-text mb-2 text-sm text-stone-500">
+                          Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
+                          Docker and attaches if one is reachable at the configured Base URL.
+                        </p>
+                        <div class="mb-2 flex flex-wrap gap-2">
+                          <button id="refresh-running-containers-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                            Refresh Running Containers
                           </button>
                         </div>
-                      </label>
-                      <p class="helper-text mb-0 text-sm text-stone-500">
-                        The structured editor generates the Docker command for you. Only the host path mounted to `/course`
-                        needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
-                      </p>
-                      <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
-                        <summary class="select-none font-semibold">Generated Command</summary>
-                        <label class="ui-field mt-2">
-                          <textarea id="generated-command-preview" class="ui-input" rows="9" readonly></textarea>
-                        </label>
-                      </details>
-                    </div>
-                  </div>
+                        <pre id="running-containers-preview" class="mb-0 rounded-lg border bg-stone-100 p-2 text-sm">No running PrairieLearn containers detected yet.</pre>
+                      </div>
+                      </div>
 
-                  <div id="custom-command-editor" class="full-width command-editor rounded-2xl bg-white/70 p-3 shadow-sm">
-                    <div class="command-editor-header mb-2">
-                      <label class="command-mode-inline ui-check mb-0">
-                        <input id="command-mode-custom" class="ui-check-input" type="radio" name="command-mode" value="custom" />
-                        <span>Write Custom Docker Command</span>
-                      </label>
-                    </div>
-                    <div class="command-editor-body">
-                      <textarea
-                        id="start-command-input"
-                        class="ui-input font-mono"
-                        rows="3"
-                        placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
-                      ></textarea>
+                      <div id="structured-command-editor" class="command-editor">
+                      <div class="command-editor-header mb-2">
+                        <label class="command-mode-inline ui-check mb-0">
+                          <input id="command-mode-structured" class="ui-check-input" type="radio" name="command-mode" value="structured" />
+                          <span>Create Docker Command</span>
+                        </label>
+                      </div>
+                      <div class="command-editor-body flex flex-col gap-2">
+                        <label class="ui-field">
+                          <span class="ui-label">Course Directory For `/course`</span>
+                          <div class="flex flex-col items-stretch gap-2 lg:flex-row lg:items-center">
+                            <input
+                              id="course-directory-input"
+                              class="ui-input ui-input-sm grow"
+                              type="text"
+                              placeholder="/absolute/path/to/course"
+                            />
+                            <button id="choose-course-directory-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
+                              Choose Folder
+                            </button>
+                          </div>
+                        </label>
+                        <p class="helper-text mb-0 text-sm text-stone-500">
+                          The structured editor generates the Docker command for you. Only the host path mounted to `/course`
+                          needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
+                        </p>
+                        <details id="generated-command-accordion" class="rounded-lg border bg-stone-100/70 p-2">
+                          <summary class="select-none font-semibold">Generated Command</summary>
+                          <label class="ui-field mt-2">
+                            <textarea id="generated-command-preview" class="ui-input" rows="9" readonly></textarea>
+                          </label>
+                        </details>
+                      </div>
+                      </div>
+
+                      <div id="custom-command-editor" class="command-editor">
+                      <div class="command-editor-header mb-2">
+                        <label class="command-mode-inline ui-check mb-0">
+                          <input id="command-mode-custom" class="ui-check-input" type="radio" name="command-mode" value="custom" />
+                          <span>Write Custom Docker Command</span>
+                        </label>
+                      </div>
+                      <div class="command-editor-body">
+                        <textarea
+                          id="start-command-input"
+                          class="ui-input font-mono"
+                          rows="3"
+                          placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
+                        ></textarea>
+                      </div>
+                      </div>
                     </div>
                   </div>
                 </div>
