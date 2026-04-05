@@ -12,130 +12,11 @@
   </head>
   <body>
     <div class="app-shell">
-      <div id="drop-overlay" class="drop-overlay" hidden>
-        <div class="drop-card">
-          <p class="eyebrow">Drop PDF</p>
-          <h2>Load Assessment PDF</h2>
-          <p>Drop a single PDF anywhere in the window to open it and restore its saved review session.</p>
-          <button id="skip-overlay-button" class="button drop-skip-button" type="button">Skip for now</button>
-        </div>
-      </div>
-
-      <header class="topbar">
-        <div class="brand">
-          <p class="eyebrow">Assessment Review</p>
-          <h1>PrairieLearn Review Desktop</h1>
-        </div>
-        <div class="toolbar-group">
-          <button id="choose-pdf-button" class="button button-primary">Choose PDF</button>
-          <button id="restart-pl-button" class="button">Start PrairieLearn</button>
-          <button id="stop-pl-button" class="button button-danger" hidden disabled>Stop</button>
-          <button id="open-browser-button" class="button">Open in Browser</button>
-        </div>
-      </header>
-
-      <section class="status-strip">
-        <div>
-          <span class="status-label">PDF</span>
-          <strong id="pdf-name">No file selected</strong>
-        </div>
-        <div>
-          <span class="status-label">PrairieLearn</span>
-          <strong id="pl-status">Waiting for configuration</strong>
-        </div>
-        <div>
-          <span class="status-label">Current URL</span>
-          <strong id="current-url">Not loaded</strong>
-        </div>
-      </section>
-
-      <details id="config-panel" class="panel config-panel">
-        <summary>PrairieLearn Connection</summary>
-        <div class="config-grid">
-          <label>
-            <span>Base URL</span>
-            <input id="base-url-input" type="url" placeholder="http://127.0.0.1:3000" />
-          </label>
-
-          <div id="structured-command-editor" class="full-width command-editor">
-            <div class="command-editor-header">
-              <label class="command-mode-inline">
-                <input id="command-mode-structured" type="radio" name="command-mode" value="structured" />
-                <span>Generated</span>
-              </label>
-            </div>
-            <div class="command-editor-body">
-              <label>
-                <span>Course Directory For `/course`</span>
-                <div class="inline-input-group">
-                  <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
-                  <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
-                </div>
-              </label>
-              <p class="helper-text">
-                The structured editor generates the Docker command for you. Only the host path mounted to `/course`
-                needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
-              </p>
-              <details id="generated-command-accordion" class="generated-command-accordion">
-                <summary>Generated Command</summary>
-                <label>
-                  <textarea id="generated-command-preview" rows="9" readonly></textarea>
-                </label>
-              </details>
-            </div>
-          </div>
-
-          <div id="custom-command-editor" class="full-width command-editor">
-            <div class="command-editor-header">
-              <label class="command-mode-inline">
-                <input id="command-mode-custom" type="radio" name="command-mode" value="custom" />
-                <span>Custom</span>
-              </label>
-            </div>
-            <div class="command-editor-body">
-              <textarea
-                id="start-command-input"
-                rows="3"
-                placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
-              ></textarea>
-            </div>
-          </div>
-
-          <div id="reconnect-command-editor" class="full-width command-editor">
-            <div class="command-editor-header">
-              <label class="command-mode-inline">
-                <input id="command-mode-reconnect" type="radio" name="command-mode" value="reconnect" />
-                <span>Reconnect</span>
-              </label>
-            </div>
-            <div class="command-editor-body">
-              <p class="helper-text">
-                Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
-                Docker and attaches if one is reachable at the configured Base URL.
-              </p>
-              <div class="toolbar-group compact">
-                <button id="refresh-running-containers-button" class="button" type="button">Refresh Running Containers</button>
-              </div>
-              <pre id="running-containers-preview">No running PrairieLearn containers detected yet.</pre>
-            </div>
-          </div>
-        </div>
-        <div class="toolbar-group">
-          <button id="save-config-button" class="button">Save Connection</button>
-          <button id="start-configured-button" class="button button-primary">Save + Start</button>
-        </div>
-        <details id="docker-output-accordion" class="docker-output-accordion">
-          <summary>PrairieLearn Start Output</summary>
-          <pre id="docker-output-log">No output yet.</pre>
-        </details>
-      </details>
-
       <main class="workspace">
         <aside class="sidebar panel">
           <div class="sidebar-header">
             <div>
-              <p class="eyebrow">Question Map</p>
-              <h2>Review Items</h2>
+              <h1 class="eyebrow">Question Map</h1>
             </div>
             <div class="toolbar-group compact">
               <button id="previous-question-button" class="button">Prev</button>
@@ -182,34 +63,167 @@
         <section class="viewer-column panel">
           <div class="pane-header">
             <div>
-              <p class="eyebrow">Assessment PDF</p>
-              <h2>PDF Viewer</h2>
+              <h1 class="eyebrow">Assessment PDF</h1>
             </div>
             <div class="toolbar-group compact">
-              <button id="previous-page-button" class="button">Prev Page</button>
-              <input id="pdf-page-input" class="page-input" type="number" min="1" step="1" value="1" />
-              <button id="next-page-button" class="button">Next Page</button>
               <button id="apply-page-button" class="button">Use For Question</button>
             </div>
           </div>
           <div class="pane-frame">
+            <div id="pdf-overlay" class="pdf-overlay">
+              <div id="pdf-drop-zone" class="pdf-drop-zone">
+                <h1 class="eyebrow">Assessment PDF</h1>
+                <h3>Load A PDF To Start Review</h3>
+                <p>Drop a single PDF here or choose one from disk.</p>
+                <button id="choose-pdf-button" class="button button-primary" type="button">Choose PDF</button>
+              </div>
+            </div>
             <iframe id="pdf-frame" title="Assessment PDF"></iframe>
           </div>
         </section>
 
         <section class="viewer-column panel">
           <div class="pane-header">
-            <div>
-              <p class="eyebrow">PrairieLearn</p>
-              <h2>Embedded Review</h2>
+            <div
+              id="pl-status-toggle"
+              class="pane-status-row pane-status-row-toggle"
+              aria-live="polite"
+              role="button"
+              tabindex="0"
+              aria-label="Connection required"
+              aria-pressed="true"
+            >
+              <h1 class="eyebrow">PrairieLearn</h1>
+              <span id="pl-indicator" class="indicator-light indicator-idle" aria-hidden="true"></span>
+              <strong id="pl-status" class="pane-status-text">waiting</strong>
+              <span id="pl-connection-icon" class="status-connection-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle class="icon-connection-glow" cx="8" cy="8" r="3"></circle>
+                  <path d="M9 3v5"></path>
+                  <path d="M15 3v5"></path>
+                  <path d="M7 8h10v3a5 5 0 0 1-10 0z"></path>
+                  <path d="M8 16v2"></path>
+                  <path d="M16 16v2"></path>
+                  <path d="M8 18h8"></path>
+                  <path class="icon-connection-cut" d="M4 20L20 4"></path>
+                </svg>
+              </span>
             </div>
             <div class="toolbar-group compact">
-              <button id="webview-back-button" class="button">Back</button>
-              <button id="webview-forward-button" class="button">Forward</button>
-              <button id="webview-reload-button" class="button">Reload</button>
+              <span class="tooltip-anchor">
+                <button
+                  id="open-browser-button"
+                  class="button icon-button"
+                  type="button"
+                  aria-label="Open in browser"
+                  title="Open in browser"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 4h6v6"></path>
+                    <path d="M20 4L10 14"></path>
+                    <path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"></path>
+                  </svg>
+                </button>
+                <span class="tooltip-popup" role="tooltip">Opens this URL in your default browser.</span>
+              </span>
+              <button id="webview-back-button" class="button icon-button" type="button" aria-label="Back" title="Back">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 6L8 12L14 18"></path>
+                  <path d="M9 12H20"></path>
+                </svg>
+              </button>
+              <button id="webview-forward-button" class="button icon-button" type="button" aria-label="Forward" title="Forward">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 6L16 12L10 18"></path>
+                  <path d="M4 12H15"></path>
+                </svg>
+              </button>
+              <button id="webview-reload-button" class="button icon-button" type="button" aria-label="Reload" title="Reload">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 12a8 8 0 1 1-2.35-5.66"></path>
+                  <path d="M20 4v6h-6"></path>
+                </svg>
+              </button>
             </div>
           </div>
           <div class="pane-frame webview-frame">
+            <div id="pl-config-overlay" class="pl-config-overlay" hidden>
+              <section id="config-panel" class="config-panel">
+                <h3 class="config-panel-heading">Configure PrairieLearn Connection</h3>
+                <div class="config-grid">
+                  <div id="reconnect-command-editor" class="full-width command-editor">
+                    <div class="command-editor-header">
+                      <label class="command-mode-inline">
+                        <input id="command-mode-reconnect" type="radio" name="command-mode" value="reconnect" />
+                        <span>Reconnect to Running Container</span>
+                      </label>
+                    </div>
+                    <div class="command-editor-body">
+                      <p class="helper-text">
+                        Reconnect mode does not launch a new container. It discovers already running PrairieLearn images via
+                        Docker and attaches if one is reachable at the configured Base URL.
+                      </p>
+                      <div class="toolbar-group compact">
+                        <button id="refresh-running-containers-button" class="button" type="button">Refresh Running Containers</button>
+                      </div>
+                      <pre id="running-containers-preview">No running PrairieLearn containers detected yet.</pre>
+                    </div>
+                  </div>
+
+                  <div id="structured-command-editor" class="full-width command-editor">
+                    <div class="command-editor-header">
+                      <label class="command-mode-inline">
+                        <input id="command-mode-structured" type="radio" name="command-mode" value="structured" />
+                        <span>Create Docker Command</span>
+                      </label>
+                    </div>
+                    <div class="command-editor-body">
+                      <label>
+                        <span>Course Directory For `/course`</span>
+                        <div class="inline-input-group">
+                          <input id="course-directory-input" type="text" placeholder="/absolute/path/to/course" />
+                          <button id="choose-course-directory-button" class="button" type="button">Choose Folder</button>
+                        </div>
+                      </label>
+                      <p class="helper-text">
+                        The structured editor generates the Docker command for you. Only the host path mounted to `/course`
+                        needs to be chosen here. A temporary `pl_ag_jobs` directory is created automatically for `/jobs`.
+                      </p>
+                      <details id="generated-command-accordion" class="generated-command-accordion">
+                        <summary>Generated Command</summary>
+                        <label>
+                          <textarea id="generated-command-preview" rows="9" readonly></textarea>
+                        </label>
+                      </details>
+                    </div>
+                  </div>
+
+                  <div id="custom-command-editor" class="full-width command-editor">
+                    <div class="command-editor-header">
+                      <label class="command-mode-inline">
+                        <input id="command-mode-custom" type="radio" name="command-mode" value="custom" />
+                        <span>Write Custom Docker Command</span>
+                      </label>
+                    </div>
+                    <div class="command-editor-body">
+                      <textarea
+                        id="start-command-input"
+                        rows="3"
+                        placeholder="docker run -d --rm --name pl-review -p 3000:3000 -v /path/to/course:/course prairielearn/prairielearn"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+                <div class="toolbar-group config-actions">
+                  <button id="start-configured-button" class="button button-primary">Save + Start</button>
+                  <button id="stop-pl-button" class="button button-danger" type="button" disabled>Stop</button>
+                </div>
+                <details id="docker-output-accordion" class="docker-output-accordion">
+                  <summary>PrairieLearn Start Output (Read-only)</summary>
+                  <pre id="docker-output-log" aria-readonly="true">No output yet.</pre>
+                </details>
+              </section>
+            </div>
             <webview
               id="prairielearn-view"
               partition="persist:prairielearn-review"

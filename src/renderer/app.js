@@ -1,14 +1,35 @@
 const sessionPrefix = "pl-review-session:";
+const plStatusText = {
+  waitingForConfiguration: "waiting",
+  starting: "starting...",
+  reconnecting: "reconnecting...",
+  ready: "ready",
+  readyWithWarning: "ready (with warning)",
+  connectionSaved: "connection saved",
+  connectFailed: "connection failed",
+  viewFailed: "view could not load",
+  stoppingStart: "cancelling start...",
+  stopStartFailed: "unable to cancel start",
+  startStopped: "waiting",
+  stoppingContainer: "stopping container...",
+  stopContainerFailed: "unable to stop container",
+  containerStopped: "waiting",
+  dropSinglePdf: "Drop a single PDF file to load it."
+};
 
 const elements = {
   choosePdfButton: document.getElementById("choose-pdf-button"),
   restartPlButton: document.getElementById("restart-pl-button"),
   stopPlButton: document.getElementById("stop-pl-button"),
   openBrowserButton: document.getElementById("open-browser-button"),
+  plStatusToggle: document.getElementById("pl-status-toggle"),
+  plConnectionIcon: document.getElementById("pl-connection-icon"),
   saveConfigButton: document.getElementById("save-config-button"),
   startConfiguredButton: document.getElementById("start-configured-button"),
   pdfName: document.getElementById("pdf-name"),
+  pdfIndicator: document.getElementById("pdf-indicator"),
   plStatus: document.getElementById("pl-status"),
+  plIndicator: document.getElementById("pl-indicator"),
   currentUrl: document.getElementById("current-url"),
   baseUrlInput: document.getElementById("base-url-input"),
   commandModeStructured: document.getElementById("command-mode-structured"),
@@ -25,10 +46,11 @@ const elements = {
   generatedCommandPreview: document.getElementById("generated-command-preview"),
   startCommandInput: document.getElementById("start-command-input"),
   configPanel: document.getElementById("config-panel"),
+  plConfigOverlay: document.getElementById("pl-config-overlay"),
+  pdfOverlay: document.getElementById("pdf-overlay"),
+  pdfDropZone: document.getElementById("pdf-drop-zone"),
   dockerOutputAccordion: document.getElementById("docker-output-accordion"),
   dockerOutputLog: document.getElementById("docker-output-log"),
-  dropOverlay: document.getElementById("drop-overlay"),
-  skipOverlayButton: document.getElementById("skip-overlay-button"),
   questionList: document.getElementById("question-list"),
   questionForm: document.getElementById("question-form"),
   questionTitleInput: document.getElementById("question-title-input"),
@@ -69,21 +91,30 @@ const state = {
   currentPrairieLearnUrl: "",
   currentPrairieLearnTitle: "",
   prairieLearnReady: false,
+  prairieLearnStatusLevel: "idle",
+  isConfigOverlayOpen: true,
   dockerLog: ""
 };
 
-let dragDepth = 0;
+let pdfDropDragDepth = 0;
 let removeDockerOutputListener = null;
 const maxDockerLogChars = 180000;
 let isPrairieLearnCommandRunning = false;
+let isPrairieLearnStopping = false;
+let hasReconnectOptions = false;
+let hasAppliedContainerModeDefault = false;
 
 function setPrairieLearnRunState(isRunning) {
   isPrairieLearnCommandRunning = isRunning;
-  const canStop = isRunning || state.prairieLearnReady;
-  elements.stopPlButton.hidden = !canStop;
+  const canStop = !isPrairieLearnStopping && (isRunning || state.prairieLearnReady);
   elements.stopPlButton.disabled = !canStop;
-  elements.restartPlButton.disabled = isRunning;
+  if (elements.restartPlButton) {
+    elements.restartPlButton.disabled = isRunning;
+  }
   elements.startConfiguredButton.disabled = isRunning;
+  elements.startConfiguredButton.classList.toggle("is-loading", isRunning);
+  elements.startConfiguredButton.setAttribute("aria-busy", isRunning ? "true" : "false");
+  renderPrairieLearnSurface();
 }
 
 function createEmptySession(pdfPath) {
@@ -141,19 +172,6 @@ function hasDraggedFiles(event) {
   return Array.from(event.dataTransfer?.types || []).includes("Files");
 }
 
-function showDropOverlay() {
-  elements.dropOverlay.hidden = false;
-}
-
-function hideDropOverlay() {
-  elements.dropOverlay.hidden = true;
-}
-
-function dismissDropOverlay() {
-  dragDepth = 0;
-  hideDropOverlay();
-}
-
 function getCurrentQuestion() {
   if (!state.session?.currentQuestionId) {
     return null;
@@ -166,13 +184,86 @@ function getQuestionIndex(questionId) {
   return state.session.questions.findIndex((question) => question.id === questionId);
 }
 
-function setPrairieLearnStatus(message) {
+function setIndicatorState(element, level) {
+  if (!element) {
+    return;
+  }
+
+  element.classList.remove("indicator-idle", "indicator-ready", "indicator-working", "indicator-warning", "indicator-error");
+  element.classList.add(`indicator-${level}`);
+}
+
+function setPrairieLearnStatus(message, level = "idle") {
+  state.prairieLearnStatusLevel = level;
   elements.plStatus.textContent = message;
+  setIndicatorState(elements.plIndicator, level);
+}
+
+function summarizeUrlForHint(url) {
+  if (!url) {
+    return "URL details";
+  }
+
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch (error) {
+    return url;
+  }
 }
 
 function setCurrentUrl(url) {
   state.currentPrairieLearnUrl = url || "";
-  elements.currentUrl.textContent = url || "Not loaded";
+  if (!elements.currentUrl) {
+    return;
+  }
+  const summary = summarizeUrlForHint(url);
+  elements.currentUrl.textContent = summary;
+  elements.currentUrl.title = url || "Not loaded";
+  elements.currentUrl.setAttribute("aria-label", url ? `Current URL: ${url}` : "Current URL not loaded");
+  elements.currentUrl.classList.toggle("is-active", Boolean(url));
+}
+
+function isPrairieLearnWaitingForConfiguration() {
+  return !state.prairieLearnReady;
+}
+
+function updateWebviewNavigationButtons() {
+  const blocked = elements.webview.hidden;
+  elements.webviewBackButton.disabled = blocked || !elements.webview.canGoBack();
+  elements.webviewForwardButton.disabled = blocked || !elements.webview.canGoForward();
+  elements.webviewReloadButton.disabled = blocked;
+}
+
+function renderPrairieLearnSurface() {
+  const forcedOverlay = isPrairieLearnWaitingForConfiguration();
+  const showOverlay = forcedOverlay || state.isConfigOverlayOpen;
+
+  elements.plConfigOverlay.hidden = !showOverlay;
+  elements.webview.hidden = showOverlay;
+  elements.webview.setAttribute("aria-hidden", showOverlay ? "true" : "false");
+  elements.webview.tabIndex = showOverlay ? -1 : 0;
+  elements.openBrowserButton.disabled = forcedOverlay;
+
+  const connectionLabel = forcedOverlay
+    ? "Connection required"
+    : showOverlay
+      ? "Hide connection panel"
+      : "Show connection panel";
+  elements.plStatusToggle.title = connectionLabel;
+  elements.plStatusToggle.setAttribute("aria-label", connectionLabel);
+  elements.plStatusToggle.setAttribute("aria-pressed", showOverlay ? "true" : "false");
+  elements.plStatusToggle.setAttribute("aria-disabled", forcedOverlay ? "true" : "false");
+  elements.plStatusToggle.classList.toggle("is-disabled", forcedOverlay);
+  elements.plStatusToggle.classList.toggle("is-active", showOverlay);
+  elements.plConnectionIcon.classList.toggle("is-connected", state.prairieLearnReady);
+
+  updateWebviewNavigationButtons();
+}
+
+function setConfigOverlayOpen(isOpen) {
+  state.isConfigOverlayOpen = Boolean(isOpen);
+  renderPrairieLearnSurface();
 }
 
 function collapseConnectionPanelOnSuccessfulPlUrl(url) {
@@ -184,7 +275,7 @@ function collapseConnectionPanelOnSuccessfulPlUrl(url) {
     const current = new URL(url);
     const base = new URL(state.config.baseUrl || "http://127.0.0.1:3000");
     if (current.origin === base.origin) {
-      elements.configPanel.open = false;
+      setConfigOverlayOpen(false);
     }
   } catch (error) {
     // Ignore parse failures for transient webview URLs.
@@ -192,7 +283,96 @@ function collapseConnectionPanelOnSuccessfulPlUrl(url) {
 }
 
 function renderDockerLog() {
-  elements.dockerOutputLog.textContent = state.dockerLog || "No output yet.";
+  const text = state.dockerLog || "No output yet.";
+  elements.dockerOutputLog.innerHTML = formatDockerLogHtml(text);
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function ansiCodesToClass(codes) {
+  if (!codes || codes.length === 0 || (codes.length === 1 && codes[0] === 0)) {
+    return "";
+  }
+
+  const classes = [];
+  let hasForeground = false;
+
+  for (const code of codes) {
+    if (code === 0) {
+      classes.length = 0;
+      hasForeground = false;
+      continue;
+    }
+    if (code === 1) {
+      classes.push("ansi-bold");
+      continue;
+    }
+    if (code === 2) {
+      classes.push("ansi-dim");
+      continue;
+    }
+    if (code === 3) {
+      classes.push("ansi-italic");
+      continue;
+    }
+    if (code === 4) {
+      classes.push("ansi-underline");
+      continue;
+    }
+    if (code === 39) {
+      hasForeground = false;
+      continue;
+    }
+    if (code >= 30 && code <= 37) {
+      classes.push(`ansi-fg-${code - 30}`);
+      hasForeground = true;
+      continue;
+    }
+    if (code >= 90 && code <= 97) {
+      classes.push(`ansi-fg-${code - 90 + 8}`);
+      hasForeground = true;
+      continue;
+    }
+  }
+
+  if (!hasForeground) {
+    classes.push("ansi-fg-default");
+  }
+
+  return classes.join(" ");
+}
+
+function formatDockerLogHtml(text) {
+  const pattern = /\x1b\[([0-9;]*)m/g;
+  let html = "";
+  let index = 0;
+  let activeClass = "";
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const chunk = text.slice(index, match.index);
+    if (chunk) {
+      const safeChunk = escapeHtml(chunk);
+      html += activeClass ? `<span class="${activeClass}">${safeChunk}</span>` : safeChunk;
+    }
+
+    const rawCodes = match[1] ? match[1].split(";").map((value) => Number(value || 0)) : [0];
+    activeClass = ansiCodesToClass(rawCodes);
+    index = match.index + match[0].length;
+  }
+
+  const tail = text.slice(index);
+  if (tail) {
+    const safeTail = escapeHtml(tail);
+    html += activeClass ? `<span class="${activeClass}">${safeTail}</span>` : safeTail;
+  }
+
+  return html || '<span class="ansi-fg-default">No output yet.</span>';
 }
 
 function resetDockerLog() {
@@ -312,7 +492,9 @@ function updateCommandEditorState() {
 }
 
 function renderConfig() {
-  elements.baseUrlInput.value = state.config.baseUrl;
+  if (elements.baseUrlInput) {
+    elements.baseUrlInput.value = state.config.baseUrl;
+  }
   elements.commandModeStructured.checked = state.config.commandMode === "structured";
   elements.commandModeCustom.checked = state.config.commandMode === "custom";
   elements.commandModeReconnect.checked = state.config.commandMode === "reconnect";
@@ -329,7 +511,7 @@ function renderConfig() {
       : Boolean(structuredCommand);
 
   if (!hasCommand) {
-    elements.configPanel.open = true;
+    setConfigOverlayOpen(true);
   }
 }
 
@@ -346,7 +528,10 @@ function getConfigFromForm() {
         : "";
 
   return {
-    baseUrl: elements.baseUrlInput.value.trim() || "http://127.0.0.1:3000",
+    baseUrl:
+      elements.baseUrlInput?.value.trim() ||
+      state.config.baseUrl ||
+      "http://127.0.0.1:3000",
     commandMode,
     courseDirectory,
     jobsDirectory,
@@ -358,22 +543,44 @@ function getConfigFromForm() {
 async function refreshRunningContainers() {
   const listed = await window.reviewApi.listPrairieLearnContainers();
   if (!listed?.ok) {
+    hasReconnectOptions = false;
     elements.runningContainersPreview.textContent =
       listed?.error || "Could not list running PrairieLearn containers.";
+    if (!hasAppliedContainerModeDefault) {
+      hasAppliedContainerModeDefault = true;
+      state.config.commandMode = "structured";
+      elements.commandModeStructured.checked = true;
+      updateCommandEditorState();
+    }
     return;
   }
 
   if (!listed.containers || listed.containers.length === 0) {
+    hasReconnectOptions = false;
     elements.runningContainersPreview.textContent = "No running PrairieLearn containers found.";
+    if (!hasAppliedContainerModeDefault) {
+      hasAppliedContainerModeDefault = true;
+      state.config.commandMode = "structured";
+      elements.commandModeStructured.checked = true;
+      updateCommandEditorState();
+    }
     return;
   }
 
+  hasReconnectOptions = true;
   elements.runningContainersPreview.textContent = listed.containers
     .map(
       (container) =>
         `${container.id}  ${container.image}\n${container.names || "unnamed"}  ${container.ports || "no ports"}  ${container.status || ""}`
     )
     .join("\n\n");
+
+  if (!hasAppliedContainerModeDefault) {
+    hasAppliedContainerModeDefault = true;
+    state.config.commandMode = "reconnect";
+    elements.commandModeReconnect.checked = true;
+    updateCommandEditorState();
+  }
 }
 
 async function ensureStructuredJobsDirectory(config) {
@@ -463,12 +670,28 @@ function renderQuestionEditor() {
 function renderPdf() {
   if (!state.pdf) {
     elements.pdfFrame.src = "about:blank";
-    elements.pdfName.textContent = "No file selected";
+    elements.pdfFrame.hidden = true;
+    elements.pdfOverlay.hidden = false;
+    elements.pdfDropZone.classList.remove("is-dragging");
+    if (elements.pdfName) {
+      elements.pdfName.textContent = "No file selected";
+      elements.pdfName.title = "No file selected";
+    }
+    setIndicatorState(elements.pdfIndicator, "idle");
     return;
   }
 
-  elements.pdfName.textContent = state.pdf.name;
-  elements.pdfPageInput.value = String(state.currentPdfPage);
+  elements.pdfOverlay.hidden = true;
+  elements.pdfFrame.hidden = false;
+  elements.pdfDropZone.classList.remove("is-dragging");
+  if (elements.pdfName) {
+    elements.pdfName.textContent = state.pdf.name;
+    elements.pdfName.title = state.pdf.path;
+  }
+  setIndicatorState(elements.pdfIndicator, "ready");
+  if (elements.pdfPageInput) {
+    elements.pdfPageInput.value = String(state.currentPdfPage);
+  }
   elements.pdfFrame.src = window.reviewApi.buildPdfUrl(state.pdf.path, state.currentPdfPage);
 }
 
@@ -659,8 +882,8 @@ async function connectPrairieLearn(mode) {
   state.config = getConfigFromForm();
   state.config = await ensureStructuredJobsDirectory(state.config);
 
-  const title = mode === "reconnect" ? "Reconnecting to PrairieLearn..." : "Starting PrairieLearn...";
-  setPrairieLearnStatus(title);
+  const title = mode === "reconnect" ? plStatusText.reconnecting : plStatusText.starting;
+  setPrairieLearnStatus(title, "working");
   setPrairieLearnRunState(true);
 
   let result;
@@ -681,9 +904,9 @@ async function connectPrairieLearn(mode) {
 
   if (result.ok) {
     state.prairieLearnReady = true;
-    setPrairieLearnStatus(result.warning ? "PrairieLearn ready (with warning)" : "PrairieLearn ready");
+    setPrairieLearnStatus(result.warning ? plStatusText.readyWithWarning : plStatusText.ready, result.warning ? "warning" : "ready");
     setPrairieLearnRunState(isPrairieLearnCommandRunning);
-    elements.configPanel.open = false;
+    setConfigOverlayOpen(false);
     const question = getCurrentQuestion();
     if (question?.prairielearnPath) {
       loadPrairieLearn(question.prairielearnPath);
@@ -693,7 +916,8 @@ async function connectPrairieLearn(mode) {
   } else {
     state.prairieLearnReady = false;
     setPrairieLearnRunState(isPrairieLearnCommandRunning);
-    setPrairieLearnStatus(result.error || "Unable to connect to PrairieLearn");
+    setPrairieLearnStatus(result.error || plStatusText.connectFailed, "error");
+    setConfigOverlayOpen(true);
   }
 }
 
@@ -715,7 +939,7 @@ async function saveConfig() {
   state.config = await ensureStructuredJobsDirectory(state.config);
   state.config = await window.reviewApi.saveConfig(state.config);
   renderConfig();
-  setPrairieLearnStatus("Connection saved");
+  setPrairieLearnStatus(plStatusText.connectionSaved, state.prairieLearnReady ? "ready" : "idle");
 }
 
 async function choosePdf() {
@@ -807,21 +1031,50 @@ function bindQuestionInputs() {
   });
 }
 
+function bindCommandEditorSelection() {
+  const mappings = [
+    { editor: elements.reconnectCommandEditor, radio: elements.commandModeReconnect },
+    { editor: elements.structuredCommandEditor, radio: elements.commandModeStructured },
+    { editor: elements.customCommandEditor, radio: elements.commandModeCustom }
+  ];
+
+  mappings.forEach(({ editor, radio }) => {
+    if (!editor || !radio) {
+      return;
+    }
+
+    editor.addEventListener("click", (event) => {
+      const interactiveTarget = event.target.closest("input, textarea, button, summary, label, a");
+      if (interactiveTarget && interactiveTarget !== radio) {
+        return;
+      }
+
+      if (!radio.checked) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+  });
+}
+
 function bindWebviewEvents() {
   elements.webview.addEventListener("dom-ready", () => {
     const url = elements.webview.getURL();
     setCurrentUrl(url);
     collapseConnectionPanelOnSuccessfulPlUrl(url);
+    updateWebviewNavigationButtons();
   });
 
   elements.webview.addEventListener("did-navigate", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
+    updateWebviewNavigationButtons();
   });
 
   elements.webview.addEventListener("did-navigate-in-page", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
+    updateWebviewNavigationButtons();
   });
 
   elements.webview.addEventListener("page-title-updated", (event) => {
@@ -829,8 +1082,47 @@ function bindWebviewEvents() {
   });
 
   elements.webview.addEventListener("did-fail-load", () => {
-    setPrairieLearnStatus("PrairieLearn view could not load. Check the container and URL.");
+    setPrairieLearnStatus(plStatusText.viewFailed, "error");
   });
+}
+
+async function handleStopPrairieLearn() {
+  if (isPrairieLearnStopping || (!isPrairieLearnCommandRunning && !state.prairieLearnReady)) {
+    return;
+  }
+
+  isPrairieLearnStopping = true;
+  elements.stopPlButton.disabled = true;
+
+  if (isPrairieLearnCommandRunning) {
+    setPrairieLearnStatus(plStatusText.stoppingStart, "working");
+    const result = await window.reviewApi.stopPrairieLearnStart();
+    if (!result?.ok) {
+      setPrairieLearnStatus(result?.error || plStatusText.stopStartFailed, "error");
+    } else {
+      setPrairieLearnStatus(plStatusText.startStopped, "idle");
+      setConfigOverlayOpen(true);
+      await refreshRunningContainers();
+    }
+    isPrairieLearnStopping = false;
+    setPrairieLearnRunState(isPrairieLearnCommandRunning);
+    return;
+  }
+
+  setPrairieLearnStatus(plStatusText.stoppingContainer, "working");
+  const result = await window.reviewApi.stopConnectedPrairieLearn(state.config.baseUrl);
+  if (!result?.ok) {
+    setPrairieLearnStatus(result?.error || plStatusText.stopContainerFailed, "error");
+  } else {
+    state.prairieLearnReady = false;
+    setPrairieLearnStatus(plStatusText.containerStopped, "idle");
+    elements.webview.src = "about:blank";
+    setCurrentUrl("");
+    setConfigOverlayOpen(true);
+    await refreshRunningContainers();
+  }
+  isPrairieLearnStopping = false;
+  setPrairieLearnRunState(isPrairieLearnCommandRunning);
 }
 
 function bindEvents() {
@@ -838,47 +1130,33 @@ function bindEvents() {
     event.preventDefault();
   });
   elements.choosePdfButton.addEventListener("click", choosePdf);
-  elements.restartPlButton.addEventListener("click", restartPrairieLearn);
-  elements.stopPlButton.addEventListener("click", async () => {
-    if (!isPrairieLearnCommandRunning && !state.prairieLearnReady) {
-      return;
-    }
-
-    elements.stopPlButton.disabled = true;
-
-    if (isPrairieLearnCommandRunning) {
-      setPrairieLearnStatus("Stopping PrairieLearn start...");
-      const result = await window.reviewApi.stopPrairieLearnStart();
-      if (!result?.ok) {
-        setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn start.");
-      } else {
-        setPrairieLearnStatus("PrairieLearn start stopped.");
-        elements.configPanel.open = true;
-        await refreshRunningContainers();
-      }
-      setPrairieLearnRunState(isPrairieLearnCommandRunning);
-      return;
-    }
-
-    setPrairieLearnStatus("Stopping connected PrairieLearn container...");
-    const result = await window.reviewApi.stopConnectedPrairieLearn(state.config.baseUrl);
-    if (!result?.ok) {
-      setPrairieLearnStatus(result?.error || "Unable to stop PrairieLearn container.");
-    } else {
-      state.prairieLearnReady = false;
-      setPrairieLearnStatus("PrairieLearn container stopped.");
-      elements.webview.src = "about:blank";
-      setCurrentUrl("");
-      elements.configPanel.open = true;
-      await refreshRunningContainers();
-    }
-    setPrairieLearnRunState(isPrairieLearnCommandRunning);
-  });
+  if (elements.restartPlButton) {
+    elements.restartPlButton.addEventListener("click", restartPrairieLearn);
+  }
+  elements.stopPlButton.addEventListener("click", handleStopPrairieLearn);
   elements.openBrowserButton.addEventListener("click", () => {
     const target = state.currentPrairieLearnUrl || state.config.baseUrl;
     window.reviewApi.openExternal(target);
   });
-  elements.saveConfigButton.addEventListener("click", saveConfig);
+  elements.plStatusToggle.addEventListener("click", () => {
+    if (isPrairieLearnWaitingForConfiguration()) {
+      return;
+    }
+    setConfigOverlayOpen(!state.isConfigOverlayOpen);
+  });
+  elements.plStatusToggle.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    if (isPrairieLearnWaitingForConfiguration()) {
+      return;
+    }
+    setConfigOverlayOpen(!state.isConfigOverlayOpen);
+  });
+  if (elements.saveConfigButton) {
+    elements.saveConfigButton.addEventListener("click", saveConfig);
+  }
   elements.startConfiguredButton.addEventListener("click", async () => {
     await saveConfig();
     await startPrairieLearn();
@@ -914,9 +1192,15 @@ function bindEvents() {
   elements.previousQuestionButton.addEventListener("click", () => moveBetweenQuestions("previous"));
   elements.nextQuestionButton.addEventListener("click", () => moveBetweenQuestions("next"));
 
-  elements.previousPageButton.addEventListener("click", () => setPdfPage(state.currentPdfPage - 1));
-  elements.nextPageButton.addEventListener("click", () => setPdfPage(state.currentPdfPage + 1));
-  elements.pdfPageInput.addEventListener("change", (event) => setPdfPage(event.target.value));
+  if (elements.previousPageButton) {
+    elements.previousPageButton.addEventListener("click", () => setPdfPage(state.currentPdfPage - 1));
+  }
+  if (elements.nextPageButton) {
+    elements.nextPageButton.addEventListener("click", () => setPdfPage(state.currentPdfPage + 1));
+  }
+  if (elements.pdfPageInput) {
+    elements.pdfPageInput.addEventListener("change", (event) => setPdfPage(event.target.value));
+  }
   elements.applyPageButton.addEventListener("click", applyCurrentPageToQuestion);
 
   elements.webviewBackButton.addEventListener("click", () => {
@@ -933,53 +1217,53 @@ function bindEvents() {
     elements.webview.reload();
   });
 
-  window.addEventListener("dragenter", (event) => {
+  elements.pdfDropZone.addEventListener("dragenter", (event) => {
     if (!hasDraggedFiles(event)) {
       return;
     }
 
     event.preventDefault();
-    dragDepth += 1;
-    showDropOverlay();
+    pdfDropDragDepth += 1;
+    elements.pdfDropZone.classList.add("is-dragging");
   });
 
-  window.addEventListener("dragover", (event) => {
+  elements.pdfDropZone.addEventListener("dragover", (event) => {
     if (!hasDraggedFiles(event)) {
       return;
     }
 
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
-    showDropOverlay();
+    elements.pdfDropZone.classList.add("is-dragging");
   });
 
-  window.addEventListener("dragleave", (event) => {
+  elements.pdfDropZone.addEventListener("dragleave", (event) => {
     if (!event.dataTransfer?.types?.includes("Files")) {
       return;
     }
 
-    dragDepth = Math.max(0, dragDepth - 1);
-    if (dragDepth === 0) {
-      hideDropOverlay();
+    pdfDropDragDepth = Math.max(0, pdfDropDragDepth - 1);
+    if (pdfDropDragDepth === 0) {
+      elements.pdfDropZone.classList.remove("is-dragging");
     }
   });
 
-  window.addEventListener("drop", async (event) => {
+  elements.pdfDropZone.addEventListener("drop", async (event) => {
     event.preventDefault();
-    dismissDropOverlay();
+    pdfDropDragDepth = 0;
+    elements.pdfDropZone.classList.remove("is-dragging");
 
     const selected = await getDroppedPdfSelection(event);
     if (!selected?.path) {
-      setPrairieLearnStatus("Drop a single PDF file to load it.");
+      setPrairieLearnStatus(plStatusText.dropSinglePdf, "warning");
       return;
     }
 
     await loadPdfSelection(selected);
   });
 
-  elements.skipOverlayButton.addEventListener("click", dismissDropOverlay);
-
   bindQuestionInputs();
+  bindCommandEditorSelection();
   bindWebviewEvents();
   window.addEventListener("beforeunload", saveSession);
 }
@@ -998,6 +1282,9 @@ async function init() {
   await refreshRunningContainers();
   renderDockerLog();
   renderAll();
+  setCurrentUrl(state.currentPrairieLearnUrl);
+  setPrairieLearnStatus(plStatusText.waitingForConfiguration, "idle");
+  setConfigOverlayOpen(true);
   setPrairieLearnRunState(false);
 }
 
