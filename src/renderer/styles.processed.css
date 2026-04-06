@@ -975,6 +975,29 @@ summary {
 .config-actions-in-step .button {
   width: 100%;
 }
+.config-inline-toggle-row {
+  display: flex;
+  justify-content: flex-start;
+}
+.config-inline-toggle {
+  gap: calc(var(--spacing) * 1.5);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.config-inline-toggle .ui-check-input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.config-inline-toggle .ui-check-label {
+  display: inline;
+  font-size: 0.82rem;
+  line-height: 1.1;
+}
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

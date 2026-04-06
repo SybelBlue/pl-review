@@ -9,6 +9,7 @@ const SETTINGS_FILE = "settings.json";
 const DEFAULT_CONFIG = {
   baseUrl: "http://127.0.0.1:3000",
   commandMode: "structured",
+  autoLoadFromDiskOnConnect: true,
   courseDirectory: "",
   jobsDirectory: "",
   customStartCommand: "",
@@ -35,6 +36,10 @@ function normalizeConfig(config = {}) {
   return {
     ...DEFAULT_CONFIG,
     ...config,
+    autoLoadFromDiskOnConnect:
+      typeof config.autoLoadFromDiskOnConnect === "boolean"
+        ? config.autoLoadFromDiskOnConnect
+        : DEFAULT_CONFIG.autoLoadFromDiskOnConnect,
     commandMode: hasLegacyStartCommand
       ? "custom"
       : ["structured", "custom", "reconnect"].includes(config.commandMode)
@@ -1028,6 +1033,13 @@ ipcMain.handle("open-external", async (_event, url) => {
   if (url) {
     await shell.openExternal(url);
   }
+});
+ipcMain.on("webview-event", (_event, payload) => {
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
+
+  console.log("[webview-event]", payload);
 });
 
 app.whenReady().then(() => {

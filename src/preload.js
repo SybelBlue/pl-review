@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("reviewApi", {
     return () => ipcRenderer.removeListener("docker-output", listener);
   },
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  emitWebviewEvent: (payload) => ipcRenderer.send("webview-event", payload),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   buildPdfUrl: (filePath, page = 1) => {
     const url = pathToFileURL(filePath);

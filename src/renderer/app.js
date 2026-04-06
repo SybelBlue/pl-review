@@ -51,6 +51,7 @@ const elements = {
   dockerInstallDocLinks: document.getElementById("docker-install-doc-links"),
   dockerDaemonStepStatus: document.getElementById("docker-daemon-step-status"),
   connectionMethodStepStatus: document.getElementById("connection-method-step-status"),
+  autoLoadFromDiskOnConnectInput: document.getElementById("auto-load-from-disk-on-connect"),
   checkDockerInstalledButton: document.getElementById("check-docker-installed-button"),
   checkDockerDaemonButton: document.getElementById("check-docker-daemon-button"),
   startDockerDaemonButton: document.getElementById("start-docker-daemon-button"),
@@ -102,6 +103,7 @@ const state = {
   config: {
     baseUrl: "http://127.0.0.1:3000",
     commandMode: "structured",
+    autoLoadFromDiskOnConnect: true,
     courseDirectory: "",
     courseDirectories: [],
     jobsDirectory: "",
@@ -143,6 +145,8 @@ let hasReconnectOptions = false;
 let hasAppliedContainerModeDefault = false;
 let draggedCourseRowIndex = null;
 const maxCourseDirectories = 10;
+const webviewEventConsolePrefix = "__PL_REVIEW_WEBVIEW_EVENT__";
+let autoLoadFromDiskPending = false;
 
 function setPrairieLearnRunState(isRunning) {
   isPrairieLearnCommandRunning = isRunning;
@@ -970,6 +974,9 @@ function updateCommandEditorState() {
   elements.commandModeStructured.disabled = !connectionUnlocked;
   elements.commandModeCustom.disabled = !connectionUnlocked;
   elements.commandModeReconnect.disabled = !connectionUnlocked;
+  if (elements.autoLoadFromDiskOnConnectInput) {
+    elements.autoLoadFromDiskOnConnectInput.disabled = !connectionUnlocked;
+  }
   elements.startConfiguredButton.textContent = getStartButtonLabelForMode(mode);
   syncStartButtonDisabledState();
 }
@@ -981,6 +988,9 @@ function renderConfig() {
   elements.commandModeStructured.checked = state.config.commandMode === "structured";
   elements.commandModeCustom.checked = state.config.commandMode === "custom";
   elements.commandModeReconnect.checked = state.config.commandMode === "reconnect";
+  if (elements.autoLoadFromDiskOnConnectInput) {
+    elements.autoLoadFromDiskOnConnectInput.checked = state.config.autoLoadFromDiskOnConnect !== false;
+  }
   const courseDirectories = getCourseDirectoriesFromConfig(state.config);
   renderCourseDirectoryRows(courseDirectories.length > 0 ? courseDirectories : [""]);
   elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
@@ -1019,6 +1029,7 @@ function getConfigFromForm() {
       state.config.baseUrl ||
       "http://127.0.0.1:3000",
     commandMode,
+    autoLoadFromDiskOnConnect: elements.autoLoadFromDiskOnConnectInput?.checked !== false,
     courseDirectory,
     courseDirectories,
     jobsDirectory,
@@ -1406,6 +1417,7 @@ async function connectPrairieLearn(mode) {
     setPrairieLearnStatus(result.warning ? plStatusText.readyWithWarning : plStatusText.ready, result.warning ? "warning" : "ready");
     setPrairieLearnRunState(isPrairieLearnCommandRunning);
     setConfigOverlayOpen(false);
+    queueAutoLoadFromDiskOnConnect();
     const question = getCurrentQuestion();
     if (question?.prairielearnPath) {
       loadPrairieLearn(question.prairielearnPath);
@@ -1413,6 +1425,7 @@ async function connectPrairieLearn(mode) {
       loadPrairieLearn(state.config.baseUrl);
     }
   } else {
+    autoLoadFromDiskPending = false;
     state.prairieLearnReady = false;
     setPrairieLearnRunState(isPrairieLearnCommandRunning);
     setPrairieLearnStatus(result.error || plStatusText.connectFailed, "error");
@@ -1556,28 +1569,174 @@ function bindCommandEditorSelection() {
   });
 }
 
+function emitWebviewEvent(payload) {
+  if (!payload || typeof window.reviewApi?.emitWebviewEvent !== "function") {
+    return;
+  }
+
+  window.reviewApi.emitWebviewEvent({
+    ...payload,
+    capturedAt: new Date().toISOString()
+  });
+}
+
+function parseWebviewConsoleEvent(rawMessage) {
+  if (typeof rawMessage !== "string" || !rawMessage.startsWith(webviewEventConsolePrefix)) {
+    return null;
+  }
+
+  const serializedPayload = rawMessage.slice(webviewEventConsolePrefix.length);
+  if (!serializedPayload) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(serializedPayload);
+  } catch (error) {
+    return null;
+  }
+}
+
+function installWebviewClickCapture() {
+  const script = `
+    (() => {
+      if (window.__plReviewClickCaptureInstalled) {
+        return;
+      }
+      window.__plReviewClickCaptureInstalled = true;
+
+      document.addEventListener("click", (event) => {
+        const source = event.target;
+        if (!(source instanceof Element)) {
+          return;
+        }
+
+        const interactive = source.closest("button, a, [role='button'], input[type='button'], input[type='submit']");
+        if (!interactive) {
+          return;
+        }
+
+        const textValue = (interactive.innerText || interactive.textContent || interactive.value || "")
+          .trim()
+          .replace(/\\s+/g, " ")
+          .slice(0, 180);
+        const className = typeof interactive.className === "string" ? interactive.className : "";
+        const href = interactive instanceof HTMLAnchorElement ? interactive.href : "";
+
+        const payload = {
+          type: "button-click",
+          pageUrl: window.location.href,
+          pagePath: window.location.pathname,
+          tagName: interactive.tagName.toLowerCase(),
+          id: interactive.id || "",
+          className: className.slice(0, 180),
+          text: textValue,
+          href: href || ""
+        };
+
+        console.log("${webviewEventConsolePrefix}" + JSON.stringify(payload));
+      }, true);
+    })();
+  `;
+
+  elements.webview.executeJavaScript(script).catch(() => {
+    // Ignore pages that deny script execution.
+  });
+}
+
+function queueAutoLoadFromDiskOnConnect() {
+  autoLoadFromDiskPending = state.config.autoLoadFromDiskOnConnect !== false;
+}
+
+function tryAutoLoadFromDiskOnConnect() {
+  if (!autoLoadFromDiskPending) {
+    return;
+  }
+
+  const script = `
+    (() => {
+      const target = document.querySelector("#navbar-load-from-disk");
+      if (!target || typeof target.click !== "function") {
+        return { clicked: false };
+      }
+
+      target.click();
+      return { clicked: true };
+    })();
+  `;
+
+  elements.webview
+    .executeJavaScript(script)
+    .then((result) => {
+      if (result?.clicked) {
+        autoLoadFromDiskPending = false;
+        emitWebviewEvent({
+          type: "command-auto-load-from-disk",
+          selector: "#navbar-load-from-disk",
+          url: elements.webview.getURL()
+        });
+      }
+    })
+    .catch(() => {
+      // Ignore pages that deny script execution.
+    });
+}
+
 function bindWebviewEvents() {
   elements.webview.addEventListener("dom-ready", () => {
     const url = elements.webview.getURL();
     setCurrentUrl(url);
     collapseConnectionPanelOnSuccessfulPlUrl(url);
     updateWebviewNavigationButtons();
+    emitWebviewEvent({
+      type: "dom-ready",
+      url
+    });
+    installWebviewClickCapture();
+    tryAutoLoadFromDiskOnConnect();
   });
 
   elements.webview.addEventListener("did-navigate", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
     updateWebviewNavigationButtons();
+    emitWebviewEvent({
+      type: "navigate",
+      url: event.url
+    });
   });
 
   elements.webview.addEventListener("did-navigate-in-page", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
     updateWebviewNavigationButtons();
+    emitWebviewEvent({
+      type: "navigate-in-page",
+      url: event.url,
+      isMainFrame: Boolean(event.isMainFrame)
+    });
+  });
+
+  elements.webview.addEventListener("did-redirect-navigation", (event) => {
+    emitWebviewEvent({
+      type: "redirect",
+      url: event.url,
+      isInPlace: Boolean(event.isInPlace),
+      isMainFrame: Boolean(event.isMainFrame)
+    });
   });
 
   elements.webview.addEventListener("page-title-updated", (event) => {
     state.currentPrairieLearnTitle = event.title;
+  });
+
+  elements.webview.addEventListener("console-message", (event) => {
+    const payload = parseWebviewConsoleEvent(event.message);
+    if (!payload) {
+      return;
+    }
+
+    emitWebviewEvent(payload);
   });
 
   elements.webview.addEventListener("did-fail-load", () => {
