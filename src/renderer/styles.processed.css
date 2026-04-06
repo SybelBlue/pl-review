@@ -331,6 +331,12 @@
       border-color: color-mix(in oklab, var(--color-stone-300) 25%, transparent);
     }
   }
+  .bg-red-50\/70 {
+    background-color: color-mix(in srgb, oklch(97.1% 0.013 17.38) 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-red-50) 70%, transparent);
+    }
+  }
   .bg-stone-100 {
     background-color: var(--color-stone-100);
   }
@@ -342,6 +348,12 @@
   }
   .bg-white {
     background-color: var(--color-white);
+  }
+  .bg-white\/70 {
+    background-color: color-mix(in srgb, #fff 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-white) 70%, transparent);
+    }
   }
   .bg-white\/80 {
     background-color: color-mix(in srgb, #fff 80%, transparent);
@@ -395,8 +407,14 @@
     --tw-font-weight: var(--font-weight-semibold);
     font-weight: var(--font-weight-semibold);
   }
+  .text-red-800 {
+    color: var(--color-red-800);
+  }
   .text-stone-500 {
     color: var(--color-stone-500);
+  }
+  .text-stone-600 {
+    color: var(--color-stone-600);
   }
   .transition {
     transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
@@ -1237,6 +1255,60 @@ summary {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.4;
+}
+.dep-checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dep-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: var(--ink);
+}
+.dep-check-name {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.85rem;
+  color: inherit;
+}
+.dep-check-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 61, 44, 0.32);
+  background: #f5efe4;
+  position: relative;
+  flex: 0 0 auto;
+}
+.dep-check-dot.is-checked {
+  background: #2a9c64;
+  border-color: rgba(24, 100, 64, 0.55);
+}
+.dep-check-dot.is-checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  width: 5px;
+  height: 8px;
+  border: solid #f7f3eb;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.dep-check-dot.is-missing {
+  background: #f3d7cf;
+  border-color: rgba(130, 51, 38, 0.4);
+}
+.dep-check-item.is-missing .dep-check-name {
+  color: #8b3a2d;
+}
+.dep-check-dot.is-unknown {
+  background: #ece3d7;
 }
 a[data-external-link="true"] {
   color: var(--accent-strong);

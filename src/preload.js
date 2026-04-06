@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("reviewApi", {
   selectPdf: () => ipcRenderer.invoke("select-pdf"),
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
   ensureJobsDirectory: (existingPath) => ipcRenderer.invoke("ensure-jobs-directory", existingPath),
+  checkCliDependencies: () => ipcRenderer.invoke("check-cli-dependencies"),
   checkDockerInstalled: () => ipcRenderer.invoke("check-docker-installed"),
   checkDockerDaemonRunning: () => ipcRenderer.invoke("check-docker-daemon-running"),
   startDockerDaemon: (mode = "start") => ipcRenderer.invoke("start-docker-daemon", mode),

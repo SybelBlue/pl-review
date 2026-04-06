@@ -652,6 +652,69 @@ summary {
   line-height: 1.4;
 }
 
+.dep-checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dep-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: var(--ink);
+}
+
+.dep-check-name {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.dep-check-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 61, 44, 0.32);
+  background: #f5efe4;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.dep-check-dot.is-checked {
+  background: #2a9c64;
+  border-color: rgba(24, 100, 64, 0.55);
+}
+
+.dep-check-dot.is-checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  width: 5px;
+  height: 8px;
+  border: solid #f7f3eb;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dep-check-dot.is-missing {
+  background: #f3d7cf;
+  border-color: rgba(130, 51, 38, 0.4);
+}
+
+.dep-check-item.is-missing .dep-check-name {
+  color: #8b3a2d;
+}
+
+.dep-check-dot.is-unknown {
+  background: #ece3d7;
+}
+
 a[data-external-link="true"] {
   color: var(--accent-strong);
   text-decoration: underline;

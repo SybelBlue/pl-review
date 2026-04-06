@@ -41,6 +41,14 @@ const elements = {
   dockerDaemonStepIndicator: document.getElementById("docker-daemon-step-indicator"),
   connectionMethodStepIndicator: document.getElementById("connection-method-step-indicator"),
   dockerInstalledStepStatus: document.getElementById("docker-installed-step-status"),
+  depDockerStatus: document.getElementById("dep-docker-status"),
+  depDockerItem: document.getElementById("dep-docker-item"),
+  depGitStatus: document.getElementById("dep-git-status"),
+  depGitItem: document.getElementById("dep-git-item"),
+  depGhStatus: document.getElementById("dep-gh-status"),
+  depGhItem: document.getElementById("dep-gh-item"),
+  dependencyInstallLinks: document.getElementById("dependency-install-links"),
+  dockerInstallDocLinks: document.getElementById("docker-install-doc-links"),
   dockerDaemonStepStatus: document.getElementById("docker-daemon-step-status"),
   connectionMethodStepStatus: document.getElementById("connection-method-step-status"),
   checkDockerInstalledButton: document.getElementById("check-docker-installed-button"),
@@ -118,6 +126,11 @@ const state = {
       status: "idle",
       message: "Waiting on step 1."
     }
+  },
+  dependencies: {
+    docker: null,
+    git: null,
+    gh: null
   }
 };
 
@@ -341,6 +354,37 @@ function setDockerCheckState(stepKey, status, message) {
   renderConfigSteps();
 }
 
+function renderDependencyChecklist() {
+  const applyDepVisual = (item, dot, value) => {
+    if (item) {
+      item.classList.toggle("is-checked", value === true);
+      item.classList.toggle("is-missing", value === false);
+      item.classList.toggle("is-unknown", value === null);
+    }
+    if (dot) {
+      dot.classList.toggle("is-checked", value === true);
+      dot.classList.toggle("is-missing", value === false);
+      dot.classList.toggle("is-unknown", value === null);
+    }
+  };
+
+  applyDepVisual(elements.depDockerItem, elements.depDockerStatus, state.dependencies.docker);
+  applyDepVisual(elements.depGitItem, elements.depGitStatus, state.dependencies.git);
+  applyDepVisual(elements.depGhItem, elements.depGhStatus, state.dependencies.gh);
+
+  if (elements.dependencyInstallLinks) {
+    const missing =
+      state.dependencies.docker === false ||
+      state.dependencies.git === false ||
+      state.dependencies.gh === false;
+    elements.dependencyInstallLinks.hidden = !missing;
+  }
+
+  if (elements.dockerInstallDocLinks) {
+    elements.dockerInstallDocLinks.hidden = state.dependencies.docker === true;
+  }
+}
+
 function withDockerDesktopRecommendation(message) {
   const base = String(message || "").trim() || "Docker Engine is not reachable.";
   if (base.toLowerCase().includes("paused")) {
@@ -350,16 +394,37 @@ function withDockerDesktopRecommendation(message) {
 }
 
 async function runDockerInstalledCheck() {
-  setDockerCheckState("installed", "working", "Checking Docker installation...");
-  const result = await window.reviewApi.checkDockerInstalled();
+  setDockerCheckState("installed", "working", "Checking command-line dependencies...");
+  const result = await window.reviewApi.checkCliDependencies();
+  state.dependencies.docker = Boolean(result?.docker?.ok);
+  state.dependencies.git = Boolean(result?.git?.ok);
+  state.dependencies.gh = Boolean(result?.gh?.installed);
+  renderDependencyChecklist();
 
   if (result?.ok) {
-    const detail = result.version ? `Docker detected: ${result.version}` : "Docker installation check passed.";
-    setDockerCheckState("installed", "success", detail);
+    const base = "Docker + Git detected.";
+    const warningText =
+      Array.isArray(result.warnings) && result.warnings.length > 0
+        ? ` Warning: ${result.warnings.join(" ")}`
+        : "";
+    setDockerCheckState("installed", "success", `${base}${warningText}`);
     return true;
   }
 
-  const message = result?.error || "Docker is not installed or not on PATH.";
+  const missing = [];
+  if (!result?.docker?.ok) {
+    missing.push("`docker` is missing");
+  }
+  if (!result?.git?.ok) {
+    missing.push("`git` is missing");
+  }
+  const fallback = "Required dependencies are missing.";
+  const core = missing.length > 0 ? `${missing.join(" and ")}.` : fallback;
+  const warningText =
+    Array.isArray(result?.warnings) && result.warnings.length > 0
+      ? ` Warning: ${result.warnings.join(" ")}`
+      : "";
+  const message = `${core} Install required tools and check again.${warningText}`;
   setDockerCheckState("installed", "error", message);
   return false;
 }
@@ -1756,6 +1821,7 @@ async function init() {
   state.config = await ensureStructuredJobsDirectory(state.config);
   renderDockerLog();
   renderAll();
+  renderDependencyChecklist();
   setCurrentUrl(state.currentPrairieLearnUrl);
   setPrairieLearnStatus(plStatusText.waitingForConfiguration, "idle");
   setConfigOverlayOpen(true);

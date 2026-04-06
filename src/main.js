@@ -377,6 +377,52 @@ async function checkDockerInstalled() {
   };
 }
 
+async function checkCommandLineDependencies() {
+  const dockerResult = await runShellCommand("docker --version", { timeoutMs: 4000 });
+  const gitResult = await runShellCommand("git --version", { timeoutMs: 4000 });
+  const ghVersionResult = await runShellCommand("gh --version", { timeoutMs: 4000 });
+
+  const dockerOk = dockerResult.ok;
+  const gitOk = gitResult.ok;
+  const ghInstalled = ghVersionResult.ok;
+
+  let ghAuthenticated = false;
+  let ghAuthMessage = "";
+  if (ghInstalled) {
+    const ghAuthResult = await runShellCommand("gh auth status", { timeoutMs: 5000 });
+    ghAuthenticated = ghAuthResult.ok;
+    ghAuthMessage = (ghAuthResult.stdout || ghAuthResult.stderr || ghAuthResult.error || "").trim();
+  }
+
+  const warnings = [];
+  if (!ghInstalled) {
+    warnings.push("`gh` is not installed.");
+  } else if (!ghAuthenticated) {
+    warnings.push("`gh` is installed but not authenticated.");
+  }
+
+  return {
+    ok: dockerOk && gitOk,
+    docker: {
+      ok: dockerOk,
+      version: (dockerResult.stdout || dockerResult.stderr || "").trim(),
+      error: (dockerResult.stderr || dockerResult.error || "").trim()
+    },
+    git: {
+      ok: gitOk,
+      version: (gitResult.stdout || gitResult.stderr || "").trim(),
+      error: (gitResult.stderr || gitResult.error || "").trim()
+    },
+    gh: {
+      installed: ghInstalled,
+      authenticated: ghAuthenticated,
+      version: (ghVersionResult.stdout || ghVersionResult.stderr || "").trim(),
+      authMessage: ghAuthMessage
+    },
+    warnings
+  };
+}
+
 async function checkDockerDaemonRunning() {
   // `docker ps` requires an active daemon; it is a reliable readiness signal.
   const daemonProbe = await runShellCommand('docker ps --format "{{.ID}}"', { timeoutMs: 5000 });
@@ -966,6 +1012,7 @@ function stopDevWatchers() {
 ipcMain.handle("select-pdf", async () => selectPdfFile());
 ipcMain.handle("select-directory", async () => selectDirectory());
 ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJobsDirectory(existingPath));
+ipcMain.handle("check-cli-dependencies", async () => checkCommandLineDependencies());
 ipcMain.handle("check-docker-installed", async () => checkDockerInstalled());
 ipcMain.handle("check-docker-daemon-running", async () => checkDockerDaemonRunning());
 ipcMain.handle("start-docker-daemon", async (_event, mode) => startDockerDaemon(mode));

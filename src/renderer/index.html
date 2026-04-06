@@ -169,15 +169,45 @@
                         <summary class="config-step-summary">
                           <span id="docker-installed-step-indicator" class="config-step-indicator" aria-hidden="true">1</span>
                           <div class="config-step-title-wrap">
-                            <h4 class="config-step-title">Check Docker Installation</h4>
+                            <h4 class="config-step-title">Check Command-Line Dependencies</h4>
                           </div>
                         </summary>
                         <div class="config-step-body">
                           <p id="docker-installed-step-status" class="config-step-status">Not checked yet.</p>
+                          <div id="cli-dependency-checklist" class="rounded-lg border bg-white/70 p-2">
+                            <p class="ui-label mb-1">Dependency Checklist</p>
+                            <ul class="dep-checklist">
+                              <li id="dep-docker-item" class="dep-check-item">
+                                <span id="dep-docker-status" class="dep-check-dot" aria-hidden="true"></span>
+                                <code class="dep-check-name">docker</code>
+                              </li>
+                              <li id="dep-git-item" class="dep-check-item">
+                                <span id="dep-git-status" class="dep-check-dot" aria-hidden="true"></span>
+                                <code class="dep-check-name">git</code>
+                              </li>
+                              <li id="dep-gh-item" class="dep-check-item">
+                                <span id="dep-gh-status" class="dep-check-dot" aria-hidden="true"></span>
+                                <code class="dep-check-name">gh</code>
+                              </li>
+                            </ul>
+                          </div>
+                          <div id="dependency-install-links" class="rounded-lg border bg-red-50/70 p-2" hidden>
+                            <p class="ui-label mb-1 text-red-800">Missing Dependency Docs</p>
+                            <p class="helper-text text-sm text-stone-600 mb-0">
+                              <a href="https://docs.docker.com/get-started/get-docker/" data-external-link="true" rel="noopener noreferrer">Install Docker</a>
+                              ·
+                              <a href="https://git-scm.com/downloads" data-external-link="true" rel="noopener noreferrer">Install Git</a>
+                              ·
+                              <a href="https://cli.github.com/" data-external-link="true" rel="noopener noreferrer">Install GitHub CLI (`gh`)</a>
+                            </p>
+                          </div>
                           <p class="helper-text text-sm text-stone-500">
-                            PrairieLearn commands require Docker CLI. We will check whether `docker` is available on your PATH.
+                            PrairieLearn commands require `docker` and `git` on your PATH.
                           </p>
                           <p class="helper-text text-sm text-stone-500">
+                            We also check `gh` (GitHub CLI) and warn if it is missing or not authenticated.
+                          </p>
+                          <p id="docker-install-doc-links" class="helper-text text-sm text-stone-500">
                             Need to install Docker first?
                             <a
                               href="https://docs.docker.com/get-started/get-docker/"
@@ -193,7 +223,7 @@
                           </p>
                           <div class="flex flex-wrap gap-2">
                             <button id="check-docker-installed-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">
-                              Check Docker Installation
+                              Check Dependencies
                             </button>
                           </div>
                         </div>
