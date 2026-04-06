@@ -269,9 +269,6 @@
   .min-h-0 {
     min-height: calc(var(--spacing) * 0);
   }
-  .min-h-screen {
-    min-height: 100vh;
-  }
   .w-full {
     width: 100%;
   }
@@ -292,9 +289,6 @@
   }
   .justify-between {
     justify-content: space-between;
-  }
-  .justify-end {
-    justify-content: flex-end;
   }
   .gap-1 {
     gap: calc(var(--spacing) * 1);
@@ -757,12 +751,20 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
   color: var(--ink);
   background: radial-gradient(circle at top left, rgba(20, 99, 86, 0.12), transparent 28%),
     radial-gradient(circle at right center, rgba(161, 77, 57, 0.08), transparent 24%),
     linear-gradient(180deg, #f8f2e8 0%, #efe6d7 100%);
   font-family: var(--font-ui);
+  overflow: hidden;
+}
+#app,
+.app-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 body::before {
   content: "";
@@ -785,6 +787,7 @@ summary {
   min-height: calc(var(--spacing) * 0);
   flex-grow: 1;
   gap: calc(var(--spacing) * 0);
+  height: 100%;
   grid-template-columns: minmax(240px, 2.3fr) minmax(0, 4.4fr) minmax(0, 5.3fr);
 }
 .panel {
@@ -801,6 +804,7 @@ summary {
 .sidebar,
 .viewer-column {
   min-height: calc(var(--spacing) * 0);
+  overflow: hidden;
 }
 .sidebar-header,
 .pane-header {
@@ -961,6 +965,14 @@ summary {
   width: 100%;
 }
 .config-actions {
+  width: 100%;
+}
+.config-actions-in-step {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(88px, 1fr);
+  gap: 8px;
+}
+.config-actions-in-step .button {
   width: 100%;
 }
 .config-grid {
