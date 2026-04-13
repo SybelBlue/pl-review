@@ -1,0 +1,31 @@
+{
+  "name": "pl-review-desktop",
+  "version": "0.1.0",
+  "description": "Electron desktop reviewer for PrairieLearn assessments and synced PDFs.",
+  "main": "src/main.js",
+  "scripts": {
+    "css:build": "postcss src/renderer/styles.css -o src/renderer/styles.processed.css",
+    "prestart": "npm run css:build",
+    "start": "node scripts/start-electron.js",
+    "predev": "npm run css:build",
+    "dev": "node scripts/start-electron.js --dev"
+  },
+  "keywords": [
+    "electron",
+    "prairielearn",
+    "pdf",
+    "review"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "electron": "^41.1.1",
+    "postcss": "^8.5.8",
+    "postcss-cli": "^11.0.1"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "tailwindcss": "^4.2.2"
+  }
+}

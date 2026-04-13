@@ -9,6 +9,10 @@ PrairieLearn Review Desktop is a local Electron app for reviewing a PDF assessme
 - sync each question to a PrairieLearn URL and a PDF page
 - flag questions, add notes, and resume later from local storage
 
+## Workspace Layout
+
+This repo now uses npm workspaces. The Electron app lives at `packages/pl-review-desktop`, while the repo root acts as the workspace manager for this package and any future sibling packages.
+
 ## Requirements
 
 - Node.js 20+
@@ -20,11 +24,15 @@ PrairieLearn Review Desktop is a local Electron app for reviewing a PDF assessme
 npm install
 ```
 
+Run this from the repo root. npm will install dependencies for all workspace packages.
+
 ## Run
 
 ```bash
 npm start
 ```
+
+This root command forwards to the `pl-review-desktop` workspace package.
 
 ## Dev Mode
 
@@ -32,7 +40,13 @@ npm start
 npm run dev
 ```
 
-In dev mode, saving files under `src/renderer/` reloads the window, while saving `src/main.js` or `src/preload.js` relaunches Electron.
+In dev mode, saving files under `packages/pl-review-desktop/src/renderer/` reloads the window, while saving `packages/pl-review-desktop/src/main.js` or `packages/pl-review-desktop/src/preload.js` relaunches Electron.
+
+If you want to target the package directly, you can also run commands like:
+
+```bash
+npm run dev --workspace pl-review-desktop
+```
 
 ## First Launch
 
