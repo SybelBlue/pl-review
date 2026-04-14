@@ -123,6 +123,22 @@ export function bindEvents(app) {
   if (elements.reviewSaveTagsButton) {
     elements.reviewSaveTagsButton.addEventListener("click", app.saveReviewTags);
   }
+  if (elements.reviewEditTagsButton) {
+    elements.reviewEditTagsButton.addEventListener("click", () => app.toggleReviewTagEditor(true));
+  }
+  if (elements.reviewTagCloseButton) {
+    elements.reviewTagCloseButton.addEventListener("click", () => app.toggleReviewTagEditor(false));
+  }
+  if (elements.reviewTagCancelButton) {
+    elements.reviewTagCancelButton.addEventListener("click", () => app.toggleReviewTagEditor(false));
+  }
+  if (elements.reviewTagPopover) {
+    elements.reviewTagPopover.addEventListener("click", (event) => {
+      if (event.target === elements.reviewTagPopover) {
+        app.toggleReviewTagEditor(false);
+      }
+    });
+  }
   if (elements.reviewApproveButton) {
     elements.reviewApproveButton.addEventListener("click", () => app.applyReviewAction("approve"));
   }
@@ -142,10 +158,10 @@ export function bindEvents(app) {
     elements.reviewUndoButton.addEventListener("click", app.undoReviewAction);
   }
   if (elements.reviewPlPrevButton) {
-    elements.reviewPlPrevButton.addEventListener("click", () => app.navigatePrairieLearnReview("previous"));
+    elements.reviewPlPrevButton.addEventListener("click", () => app.navigateReviewSequence("previous"));
   }
   if (elements.reviewPlNextButton) {
-    elements.reviewPlNextButton.addEventListener("click", () => app.navigatePrairieLearnReview("next"));
+    elements.reviewPlNextButton.addEventListener("click", () => app.navigateReviewSequence("next"));
   }
 
   elements.questionForm.addEventListener("submit", (event) => {
@@ -336,5 +352,8 @@ export function bindEvents(app) {
   bindQuestionInputs(app);
   bindCommandEditorSelection(app);
   bindWebviewEvents(app);
+  documentRef.addEventListener("keydown", (event) => {
+    app.handleGlobalKeydown(event);
+  });
   windowRef.addEventListener("beforeunload", app.saveSession);
 }

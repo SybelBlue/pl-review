@@ -76,6 +76,7 @@ export function renderPrairieLearnSurface({ elements, state }) {
   }
   if (elements.webview) {
     elements.webview.hidden = showOverlay;
+    elements.webview.style.visibility = showOverlay ? "hidden" : "visible";
     elements.webview.setAttribute("aria-hidden", showOverlay ? "true" : "false");
     elements.webview.tabIndex = showOverlay ? -1 : 0;
   }

@@ -123,7 +123,8 @@ export async function init({
       context: null,
       directoryEntries: [],
       directoryQuery: "",
-      message: "Review workflow idle."
+      message: "Review workflow idle.",
+      isTagEditorOpen: false
     }
   };
 
@@ -288,17 +289,88 @@ export async function init({
   }
 
   function applyReviewSnapshot(snapshot, message = "") {
+    const previousItemId = state.review.context?.session?.currentItem?.itemId || "";
+    const nextItemId = snapshot?.session?.currentItem?.itemId || "";
     state.review.context = snapshot || null;
     state.review.directoryEntries = snapshot?.session?.directoryEntries || [];
     if (message) {
       state.review.message = message;
     }
+    if (!snapshot?.session?.currentItem || previousItemId !== nextItemId) {
+      state.review.isTagEditorOpen = false;
+    }
     mergeReviewConfigFromSnapshot(snapshot);
     renderReviewLocal();
+    return previousItemId !== nextItemId;
   }
 
-  async function jumpToReviewQuestion(questionIndex) {
-    const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+  function getReviewSequenceId() {
+    return elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+  }
+
+  async function syncPrairieLearnToReviewItem(item) {
+    if (!item?.link || state.review.context?.sourceType !== "sidecar") {
+      return;
+    }
+    loadPrairieLearn(item.link);
+  }
+
+  function focusReviewTagInput() {
+    if (!elements.reviewTagInput) {
+      return;
+    }
+    elements.reviewTagInput.focus();
+    if (typeof elements.reviewTagInput.setSelectionRange === "function") {
+      const length = elements.reviewTagInput.value.length;
+      elements.reviewTagInput.setSelectionRange(length, length);
+    }
+  }
+
+  function setReviewTagEditorOpen(isOpen, { focus = true } = {}) {
+    state.review.isTagEditorOpen = Boolean(isOpen);
+    if (elements.reviewTagPopover) {
+      elements.reviewTagPopover.hidden = !state.review.isTagEditorOpen;
+    }
+    if (elements.reviewEditTagsButton) {
+      elements.reviewEditTagsButton.setAttribute("aria-expanded", state.review.isTagEditorOpen ? "true" : "false");
+    }
+    if (state.review.isTagEditorOpen && focus) {
+      focusReviewTagInput();
+    }
+  }
+
+  function isEditableTarget(target) {
+    if (!(target instanceof windowRef.HTMLElement)) {
+      return false;
+    }
+    if (target.isContentEditable) {
+      return true;
+    }
+    return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+  }
+
+  async function saveReviewTagsAndMaybeClose({ closeAfterSave = true } = {}) {
+    const sequenceId = getReviewSequenceId();
+    if (!sequenceId) {
+      return;
+    }
+    const tags = String(elements.reviewTagInput?.value || "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const snapshot = await windowRef.reviewApi.updateReviewTags(sequenceId, tags);
+    applyReviewSnapshot(snapshot, "Updated review tags.");
+    if (state.review.directoryQuery) {
+      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
+      renderReviewLocal();
+    }
+    if (closeAfterSave) {
+      setReviewTagEditorOpen(false, { focus: false });
+    }
+  }
+
+  async function jumpToReviewQuestion(questionIndex, { syncPrairieLearn = false } = {}) {
+    const sequenceId = getReviewSequenceId();
     if (!sequenceId) {
       return;
     }
@@ -307,6 +379,9 @@ export async function init({
     if (state.review.directoryQuery) {
       state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
       renderReviewLocal();
+    }
+    if (syncPrairieLearn) {
+      await syncPrairieLearnToReviewItem(snapshot?.session?.currentItem);
     }
   }
 
@@ -343,6 +418,51 @@ export async function init({
       button.append(title, meta);
       button.addEventListener("click", () => {
         void jumpToReviewQuestion(entry.index);
+      });
+      container.append(button);
+    });
+  }
+
+  function renderReviewSequenceEntries() {
+    const container = elements.reviewSequenceList;
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+    const session = state.review.context?.session || null;
+    const entries = session?.sequenceEntries || [];
+    if (entries.length === 0) {
+      const empty = documentRef.createElement("div");
+      empty.className = "question-item-meta";
+      empty.textContent = "No active sidecar sequence.";
+      container.append(empty);
+      return;
+    }
+
+    entries.forEach((entry) => {
+      const button = documentRef.createElement("button");
+      button.type = "button";
+      button.className = "question-item";
+      if (entry.isCurrent) {
+        button.classList.add("is-active");
+      }
+      if (entry.decision) {
+        button.classList.add("is-complete");
+      }
+      button.dataset.reviewSequenceIndex = String(entry.index);
+
+      const title = documentRef.createElement("span");
+      title.className = "question-item-title";
+      title.textContent = entry.title || entry.relpath;
+
+      const meta = documentRef.createElement("span");
+      meta.className = "question-item-meta";
+      meta.textContent = `${entry.index + 1}. ${entry.relpath}${entry.decision ? ` • ${entry.decision}` : " • pending"}`;
+
+      button.append(title, meta);
+      button.addEventListener("click", () => {
+        void jumpToReviewQuestion(entry.index, { syncPrairieLearn: true });
       });
       container.append(button);
     });
@@ -402,9 +522,17 @@ export async function init({
     if (elements.reviewCurrentFiles) {
       elements.reviewCurrentFiles.textContent = item?.reviewFiles?.length > 0 ? item.reviewFiles.join("\n") : "";
     }
+    if (elements.reviewSequencePosition) {
+      elements.reviewSequencePosition.textContent = session
+        ? `Sequence ${session.currentIndex + 1} of ${session.totalQuestions}`
+        : "No active sequence.";
+    }
     if (elements.reviewTagInput) {
       elements.reviewTagInput.value = item?.reviewTags?.join(", ") || "";
       elements.reviewTagInput.disabled = !item;
+    }
+    if (elements.reviewEditTagsButton) {
+      elements.reviewEditTagsButton.disabled = !item;
     }
     if (elements.reviewDirectorySearchInput) {
       elements.reviewDirectorySearchInput.value = state.review.directoryQuery || "";
@@ -425,8 +553,16 @@ export async function init({
     if (elements.reviewUndoButton) {
       elements.reviewUndoButton.disabled = !session?.canUndo;
     }
+    if (elements.reviewPlPrevButton) {
+      elements.reviewPlPrevButton.disabled = !session || session.currentIndex <= 0;
+    }
+    if (elements.reviewPlNextButton) {
+      elements.reviewPlNextButton.disabled = !session || session.currentIndex >= session.totalQuestions - 1;
+    }
 
+    renderReviewSequenceEntries();
     renderReviewDirectoryEntries();
+    setReviewTagEditorOpen(state.review.isTagEditorOpen && Boolean(item), { focus: false });
   }
 
   function renderDockerLog() {
@@ -871,6 +1007,7 @@ export async function init({
       setPrairieLearnStatusLocal(result.warning ? plStatusText.readyWithWarning : plStatusText.ready, result.warning ? "warning" : "ready");
       setPrairieLearnRunState(isPrairieLearnCommandRunning);
       setConfigOverlayOpenLocal(false);
+      await resetPrairieLearnWebviewAttachment();
       queueAutoLoadFromDiskOnConnect();
       const question = getCurrentQuestion(state.session);
       if (question?.prairielearnPath) {
@@ -1002,6 +1139,7 @@ export async function init({
   async function resetPrairieLearnWebviewAttachment() {
     attachedPrairieLearnWebContentsId = null;
     attachPrairieLearnWebviewPromise = null;
+    autoLoadFromDiskInFlight = false;
     try {
       await windowRef.reviewApi.detachPrairieLearnWebview();
     } catch (error) {
@@ -1182,7 +1320,7 @@ export async function init({
     },
     searchReviewQuestions: async (query) => {
       state.review.directoryQuery = query;
-      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      const sequenceId = getReviewSequenceId();
       if (!sequenceId) {
         state.review.directoryEntries = [];
         renderReviewLocal();
@@ -1192,62 +1330,106 @@ export async function init({
       renderReviewLocal();
     },
     saveReviewTags: async () => {
-      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
-      if (!sequenceId) {
-        return;
-      }
-      const tags = String(elements.reviewTagInput?.value || "")
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
-      const snapshot = await windowRef.reviewApi.updateReviewTags(sequenceId, tags);
-      applyReviewSnapshot(snapshot, "Updated review tags.");
-      if (state.review.directoryQuery) {
-        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
-        renderReviewLocal();
-      }
+      await saveReviewTagsAndMaybeClose();
     },
     applyReviewAction: async (action) => {
-      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      const sequenceId = getReviewSequenceId();
       if (!sequenceId) {
         return;
       }
       const result = await windowRef.reviewApi.applyReviewAction(sequenceId, action);
-      applyReviewSnapshot(result?.snapshot, result?.message || `Applied ${action}.`);
+      const currentItemChanged = applyReviewSnapshot(result?.snapshot, result?.message || `Applied ${action}.`);
       if (state.review.directoryQuery) {
         state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
         renderReviewLocal();
       }
+      if (currentItemChanged) {
+        await syncPrairieLearnToReviewItem(result?.snapshot?.session?.currentItem);
+      }
     },
     undoReviewAction: async () => {
-      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      const sequenceId = getReviewSequenceId();
       if (!sequenceId) {
         return;
       }
       const result = await windowRef.reviewApi.undoReviewAction(sequenceId);
-      applyReviewSnapshot(result?.snapshot, result?.message || "Undid review action.");
+      const currentItemChanged = applyReviewSnapshot(result?.snapshot, result?.message || "Undid review action.");
       if (state.review.directoryQuery) {
         state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
         renderReviewLocal();
       }
+      if (currentItemChanged) {
+        await syncPrairieLearnToReviewItem(result?.snapshot?.session?.currentItem);
+      }
     },
     jumpToReviewQuestion,
-    navigatePrairieLearnReview: async (direction) => {
-      await ensurePrairieLearnWebviewAttached();
-      if (direction === "previous") {
-        await windowRef.reviewApi.goToPreviousPrairieLearnQuestion();
-      } else {
-        await windowRef.reviewApi.goToNextPrairieLearnQuestion();
+    navigateReviewSequence: async (direction) => {
+      const session = state.review.context?.session || null;
+      if (!session || session.currentIndex < 0) {
+        return;
       }
-      const current = await windowRef.reviewApi.getPrairieLearnCurrent();
-      if (current?.url) {
-        setCurrentUrlLocal(current.url);
+      const nextIndex =
+        direction === "previous" ? Math.max(0, session.currentIndex - 1) : Math.min(session.totalQuestions - 1, session.currentIndex + 1);
+      if (nextIndex === session.currentIndex) {
+        return;
       }
-      if (current?.title) {
-        state.currentPrairieLearnTitle = current.title;
+      await jumpToReviewQuestion(nextIndex, { syncPrairieLearn: true });
+    },
+    toggleReviewTagEditor: (isOpen) => {
+      const nextOpen = typeof isOpen === "boolean" ? isOpen : !state.review.isTagEditorOpen;
+      if (!state.review.context?.session?.currentItem) {
+        return;
       }
-      state.review.message = `Moved PrairieLearn ${direction}.`;
-      renderReviewLocal();
+      setReviewTagEditorOpen(nextOpen);
+    },
+    handleGlobalKeydown: (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      if (state.review.isTagEditorOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setReviewTagEditorOpen(false, { focus: false });
+          return;
+        }
+        if (event.key === "Enter" && event.target === elements.reviewTagInput) {
+          event.preventDefault();
+          void saveReviewTagsAndMaybeClose();
+          return;
+        }
+      }
+
+      if (isEditableTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      const key = String(event.key || "").toLowerCase();
+      if (key === "a") {
+        event.preventDefault();
+        void app.applyReviewAction("approve");
+      } else if (key === "r") {
+        event.preventDefault();
+        void app.applyReviewAction("erroneous");
+      } else if (key === "w") {
+        event.preventDefault();
+        void app.applyReviewAction("waiting");
+      } else if (key === "s") {
+        event.preventDefault();
+        void app.applyReviewAction("skip");
+      } else if (key === "u") {
+        event.preventDefault();
+        void app.undoReviewAction();
+      } else if (key === "t") {
+        event.preventDefault();
+        app.toggleReviewTagEditor();
+      } else if (event.key === "[") {
+        event.preventDefault();
+        void app.navigateReviewSequence("previous");
+      } else if (event.key === "]") {
+        event.preventDefault();
+        void app.navigateReviewSequence("next");
+      }
     },
     incrementPdfDropDragDepth: () => {
       pdfDropDragDepth += 1;

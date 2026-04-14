@@ -154,4 +154,35 @@ test("review-service prefers live sidecar sequence and resolves local question d
   assert.equal(context.currentSequenceId, "index-assessment:http___localhost");
   assert.equal(context.session.currentItem.resolutionStatus, "resolved");
   assert.match(context.session.currentItem.questionDir, /course\/questions\/topic\/q1$/);
+  assert.equal(context.session.sequenceEntries.length, 1);
+  assert.equal(context.session.sequenceEntries[0].isCurrent, true);
+});
+
+test("review-service returns empty context when manifest path is missing", async () => {
+  const service = createReviewService({
+    readConfig: async () => ({
+      reviewManifestPath: "questions/review/_transpile_manifest.json",
+      reviewSourceType: "manifest",
+      reviewSequenceId: "",
+      reviewBankSlug: "",
+      reviewStateRoot: ".automation/review_state",
+      reviewReviewedRoot: "questions/reviewed",
+      reviewErroneousRoot: "questions/erroneous",
+      reviewWaitingRoot: "questions/waiting",
+      reviewErroneousAssessmentSlug: "erroneous",
+      reviewErroneousAssessmentTitle: "Erroneous Questions",
+      reviewErroneousAssessmentNumber: "ERR",
+      reviewWaitingAssessmentSlug: "waiting",
+      reviewWaitingAssessmentTitle: "Waiting Questions",
+      reviewWaitingAssessmentNumber: "WAIT"
+    }),
+    writeConfig: async (config) => config,
+    fs,
+    path
+  });
+
+  const context = await service.loadContext();
+  assert.equal(context.sourceType, "manifest");
+  assert.equal(context.session, null);
+  assert.deepEqual(context.sequences, []);
 });

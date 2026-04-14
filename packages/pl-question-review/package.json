@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "test": "node --test ./test/*.test.js",
-    "check": "node --check ./src/index.js && npm run test"
+    "check": "node --check ./src/index.js && node --check ./src/manifest-adapter.js && npm run test"
   },
   "engines": {
     "node": ">=20"

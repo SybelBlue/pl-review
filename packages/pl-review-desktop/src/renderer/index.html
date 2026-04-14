@@ -13,15 +13,15 @@
   <body class="bg-stone-100">
     <div class="app-shell relative flex h-full w-full flex-col overflow-hidden px-2 py-2 md:px-3">
       <main class="workspace grow">
-        <aside class="sidebar panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+        <aside class="sidebar panel relative flex flex-col gap-2 p-2 md:gap-3 md:p-3">
           <section class="rounded-2xl border border-stone-300/70 bg-white/60 p-3">
             <div class="mb-2 flex items-center justify-between gap-2">
               <div>
                 <h1 class="eyebrow mb-0 font-semibold text-stone-500">Review Queue</h1>
               </div>
               <div class="flex flex-wrap gap-2">
-                <button id="review-pl-prev-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">PL Prev</button>
-                <button id="review-pl-next-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">PL Next</button>
+                <button id="review-pl-prev-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Prev [</button>
+                <button id="review-pl-next-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Next ]</button>
               </div>
             </div>
             <div class="grid gap-2">
@@ -45,18 +45,29 @@
                 <div id="review-current-tags" class="helper-text text-sm text-stone-600"></div>
                 <div id="review-current-files" class="helper-text text-sm text-stone-600 whitespace-pre-wrap"></div>
               </div>
-              <label class="ui-field">
-                <span class="ui-label">Review Tags</span>
-                <div class="flex gap-2">
-                  <input id="review-tag-input" class="ui-input ui-input-sm" type="text" placeholder="rv:checked, needs-format" />
-                  <button id="review-save-tags-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Save Tags</button>
+              <div class="rounded-xl border border-stone-300/70 bg-white/70 p-2">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <div>
+                    <div class="ui-label">Current Sequence</div>
+                    <div id="review-sequence-position" class="helper-text text-sm text-stone-600">No active sequence.</div>
+                  </div>
+                  <button
+                    id="review-edit-tags-button"
+                    class="button ui-btn ui-btn-secondary ui-btn-sm"
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded="false"
+                  >
+                    Edit Tags T
+                  </button>
                 </div>
-              </label>
+                <div id="review-sequence-list" class="question-list max-h-40 overflow-auto"></div>
+              </div>
               <div class="grid grid-cols-2 gap-2">
-                <button id="review-approve-button" class="button ui-btn ui-btn-primary" type="button">Approve</button>
+                <button id="review-approve-button" class="button ui-btn ui-btn-primary" type="button">Accept A</button>
                 <button id="review-approve-format-button" class="button ui-btn ui-btn-secondary" type="button">Approve + Format</button>
                 <button id="review-waiting-button" class="button ui-btn ui-btn-secondary" type="button">Waiting</button>
-                <button id="review-erroneous-button" class="button ui-btn ui-btn-danger" type="button">Erroneous</button>
+                <button id="review-erroneous-button" class="button ui-btn ui-btn-danger" type="button">Reject R</button>
                 <button id="review-skip-button" class="button ui-btn ui-btn-secondary" type="button">Skip</button>
                 <button id="review-undo-button" class="button ui-btn ui-btn-secondary" type="button">Undo</button>
               </div>
@@ -67,6 +78,28 @@
               <div id="review-directory-list" class="question-list max-h-48 overflow-auto"></div>
             </div>
           </section>
+
+          <div id="review-tag-popover" class="review-tag-popover" hidden>
+            <section class="review-tag-popover-card" role="dialog" aria-modal="true" aria-labelledby="review-tag-popover-title">
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <h2 id="review-tag-popover-title" class="eyebrow mb-0 font-semibold text-stone-500">Review Tags</h2>
+                </div>
+                <button id="review-tag-close-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Close</button>
+              </div>
+              <p class="helper-text text-sm text-stone-600">Use commas between tags. Press Enter to save or Escape to close.</p>
+              <textarea
+                id="review-tag-input"
+                class="ui-input mt-2"
+                rows="4"
+                placeholder="rv:checked, needs-format"
+              ></textarea>
+              <div class="mt-3 flex justify-end gap-2">
+                <button id="review-tag-cancel-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Cancel</button>
+                <button id="review-save-tags-button" class="button ui-btn ui-btn-primary ui-btn-sm" type="button">Save Tags</button>
+              </div>
+            </section>
+          </div>
 
           <div class="sidebar-header flex items-center justify-between gap-2">
             <div>
