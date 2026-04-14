@@ -382,6 +382,26 @@
       </button>
     </template>
 
-    <script src="./app.js"></script>
+    <template id="course-directory-row-template">
+      <div class="course-directory-row">
+        <span class="course-directory-handle" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
+        <span class="course-directory-mount"></span>
+        <input
+          class="ui-input ui-input-sm course-directory-input"
+          data-course-directory-input="true"
+          type="text"
+          placeholder="/absolute/path/to/course"
+        />
+        <button class="button ui-folder-btn" type="button" data-course-choose title="Choose folder" aria-label="Choose folder">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v1H3z"></path>
+            <path d="M3 9h18l-1.5 9a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"></path>
+          </svg>
+        </button>
+        <button class="button ui-remove-btn" type="button" data-course-remove title="Remove course" aria-label="Remove course">✕</button>
+      </div>
+    </template>
+
+    <script type="module" src="./app.mjs"></script>
   </body>
 </html>

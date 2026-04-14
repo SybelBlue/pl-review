@@ -8,7 +8,10 @@
     "prestart": "npm run css:build",
     "start": "node scripts/start-electron.js",
     "predev": "npm run css:build",
-    "dev": "node scripts/start-electron.js --dev"
+    "dev": "node scripts/start-electron.js --dev",
+    "test:main": "node --test ./test/main/*.test.cjs",
+    "test:renderer": "node --test ./test/renderer/*.test.mjs",
+    "test": "npm run test:main && npm run test:renderer"
   },
   "keywords": [
     "electron",
@@ -21,6 +24,7 @@
   "devDependencies": {
     "autoprefixer": "^10.4.27",
     "electron": "^41.1.1",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.8",
     "postcss-cli": "^11.0.1"
   },

@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+  <body>
+    <button id="choose-pdf-button" type="button"></button>
+    <button id="restart-pl-button" type="button"></button>
+    <button id="stop-pl-button" type="button"></button>
+    <button id="open-browser-button" type="button"></button>
+    <button id="pl-status-toggle" type="button"></button>
+    <button id="save-config-button" type="button"></button>
+    <button id="start-configured-button" type="button"></button>
+    <span id="pdf-name"></span>
+    <span id="pdf-indicator"></span>
+    <span id="pl-status"></span>
+    <span id="pl-indicator"></span>
+    <span id="current-url"></span>
+    <input id="base-url-input" value="http://127.0.0.1:3000" />
+
+    <details id="config-step-docker-installed"><summary></summary></details>
+    <details id="config-step-docker-daemon"><summary></summary></details>
+    <details id="config-step-connection-method"><summary></summary></details>
+    <span id="docker-installed-step-indicator"></span>
+    <span id="docker-daemon-step-indicator"></span>
+    <span id="connection-method-step-indicator"></span>
+    <p id="docker-installed-step-status"></p>
+    <span id="dep-docker-status"></span>
+    <div id="dep-docker-item"></div>
+    <span id="dep-git-status"></span>
+    <div id="dep-git-item"></div>
+    <span id="dep-gh-status"></span>
+    <div id="dep-gh-item"></div>
+    <div id="dependency-install-links" hidden></div>
+    <div id="docker-install-doc-links" hidden></div>
+    <p id="docker-daemon-step-status"></p>
+    <p id="connection-method-step-status"></p>
+    <input id="auto-load-from-disk-on-connect" type="checkbox" checked />
+    <button id="check-docker-installed-button" type="button"></button>
+    <button id="check-docker-daemon-button" type="button"></button>
+    <button id="start-docker-daemon-button" type="button"></button>
+    <button id="restart-docker-daemon-button" type="button"></button>
+    <div id="connection-step-content"></div>
+
+    <div id="structured-command-editor" class="command-editor"></div>
+    <div id="custom-command-editor" class="command-editor"></div>
+    <div id="reconnect-command-editor" class="command-editor"></div>
+    <div id="course-directories-zone"></div>
+    <div id="course-directories-list"></div>
+    <button id="add-course-directory-button" type="button"></button>
+    <button id="refresh-running-containers-button" type="button"></button>
+    <pre id="running-containers-preview"></pre>
+    <details id="generated-command-accordion"><summary></summary></details>
+    <textarea id="generated-command-preview"></textarea>
+    <textarea id="start-command-input"></textarea>
+    <div id="config-panel"></div>
+    <div id="pl-config-overlay"></div>
+    <div id="pdf-overlay"></div>
+    <div id="pdf-drop-zone"></div>
+    <details id="docker-output-accordion"><summary></summary></details>
+    <pre id="docker-output-log"></pre>
+
+    <div id="question-list"></div>
+    <form id="question-form"></form>
+    <input id="question-title-input" />
+    <input id="question-path-input" />
+    <input id="question-pdf-page-input" />
+    <input id="question-tags-input" />
+    <input id="question-flagged-input" type="checkbox" />
+    <textarea id="question-notes-input"></textarea>
+    <button id="new-question-button" type="button"></button>
+    <button id="capture-view-button" type="button"></button>
+    <button id="delete-question-button" type="button"></button>
+    <button id="previous-question-button" type="button"></button>
+    <button id="next-question-button" type="button"></button>
+    <button id="previous-page-button" type="button"></button>
+    <button id="next-page-button" type="button"></button>
+    <button id="apply-page-button" type="button"></button>
+    <input id="pdf-page-input" />
+    <iframe id="pdf-frame"></iframe>
+    <webview id="prairielearn-view"></webview>
+    <button id="webview-back-button" type="button"></button>
+    <button id="webview-forward-button" type="button"></button>
+    <button id="webview-reload-button" type="button"></button>
+
+    <input id="command-mode-structured" type="radio" name="command-mode" checked />
+    <input id="command-mode-custom" type="radio" name="command-mode" />
+    <input id="command-mode-reconnect" type="radio" name="command-mode" />
+
+    <template id="question-item-template">
+      <button class="question-item" type="button">
+        <span class="question-item-title"></span>
+        <span class="question-item-meta"></span>
+      </button>
+    </template>
+
+    <template id="course-directory-row-template">
+      <div class="course-directory-row">
+        <span class="course-directory-handle">⋮⋮</span>
+        <span class="course-directory-mount"></span>
+        <input data-course-directory-input="true" />
+        <button data-course-choose type="button"></button>
+        <button data-course-remove type="button"></button>
+      </div>
+    </template>
+  </body>
+</html>

@@ -53,6 +53,14 @@ To syntax-check the sidecar package:
 npm run sidecar:check
 ```
 
+To run the desktop review app test suite:
+
+```bash
+npm run review:test
+```
+
+Desktop tests live under `packages/pl-review-desktop/test/`.
+
 ## Dev Mode
 
 ```bash
@@ -97,3 +105,14 @@ Use `Capture Current View` after navigating PrairieLearn in the embedded webview
 
 - PrairieLearn connection settings are stored in Electron's app data directory.
 - Review sessions are stored in renderer `localStorage`, keyed by the selected PDF path, so returning to the same file restores your question mappings, flags, notes, and last viewed page.
+
+## Desktop Test And Refactor Notes
+
+- `packages/pl-review-desktop/src/main/` contains extracted services for config storage, CLI checks, PrairieLearn runtime orchestration, and webview attachment.
+- `packages/pl-review-desktop/src/renderer/` now uses a module entrypoint with split state, service, UI, and controller files.
+- Desktop prerequisite behavior is:
+  - `docker` and `git` are required
+  - `gh` is optional and warned on when missing or unauthenticated
+  - `structured` mode builds the Docker command from mounted course directories
+  - `custom` mode uses the provided Docker command as-is
+  - `reconnect` mode attaches to an already running PrairieLearn container
