@@ -1,3 +1,4 @@
+const { EventEmitter } = require('node:events');
 const puppeteer = require('puppeteer');
 const {
   followLoadFromDisk,
@@ -9,13 +10,14 @@ const {
   waitForPageReady,
 } = require('../prairielearn/page-actions');
 
-class BrowserSession {
+class BrowserSession extends EventEmitter {
   constructor(options) {
+    super();
     this.options = options;
     this.logger = options.logger;
     this.browser = null;
     this.page = null;
-    this.isConnected = false;
+    this.connectionMode = null;
     this.autoIndexPromise = null;
     this.lastAutoIndexedUrl = null;
     this.lastAutoIndexedMode = null;
@@ -34,7 +36,7 @@ class BrowserSession {
         browserWSEndpoint: this.options.browserWSEndpoint,
         defaultViewport: null,
       });
-      this.isConnected = true;
+      this.connectionMode = 'connect';
     } else {
       this.logger.info('Launching dedicated browser window');
       this.browser = await puppeteer.launch({
@@ -46,6 +48,7 @@ class BrowserSession {
           '--disable-dev-shm-usage',
         ],
       });
+      this.connectionMode = 'launch';
     }
 
     this.browser.on('disconnected', () => {
@@ -55,7 +58,7 @@ class BrowserSession {
     this.page = await this.pickPage();
     this.attachPageListeners(this.page);
 
-    await this.page.bringToFront();
+    await this.page.bringToFront().catch(() => {});
 
     if (this.options.startUrl) {
       await this.goto(this.options.startUrl);
@@ -64,6 +67,38 @@ class BrowserSession {
     } else {
       this.logger.info('Browser is ready on about:blank; use "goto <url>" to open PrairieLearn');
     }
+  }
+
+  async attach({ browser, page, connectionMode = 'attach', waitUntilReady = true } = {}) {
+    if (!browser || !page) {
+      throw new Error('BrowserSession.attach requires both browser and page');
+    }
+
+    if (this.browser) {
+      await this.close();
+    }
+
+    this.browser = browser;
+    this.page = page;
+    this.connectionMode = connectionMode;
+    this.autoIndexPromise = null;
+    this.lastAutoIndexedUrl = null;
+    this.lastAutoIndexedMode = null;
+    this.latestQuestionIndex = null;
+    this.currentQuestionQid = null;
+
+    this.browser.on('disconnected', () => {
+      this.logger.warn('Browser connection closed');
+    });
+
+    this.attachPageListeners(this.page);
+
+    if (waitUntilReady && this.page.url() !== 'about:blank') {
+      await this.waitUntilReady('attach');
+      this.updateCurrentQuestionFromUrl(this.page.url());
+    }
+
+    return this.getStatus();
   }
 
   async pickPage() {
@@ -306,7 +341,12 @@ class BrowserSession {
           || await this.maybeAutoIndexCourseQuestions();
 
         if (result) {
-          process.stdout.write(`${formatAutoIndexHeading(result)}:\n${JSON.stringify(result, null, 2)}\n`);
+          this.emit('event', {
+            type: 'question-indexed',
+            heading: formatAutoIndexHeading(result),
+            result,
+            url,
+          });
         }
       } catch (error) {
         this.logger.error('Automatic assessment indexing failed', error);
@@ -325,7 +365,7 @@ class BrowserSession {
 
     return {
       currentQuestionQid: this.currentQuestionQid,
-      connectedMode: this.isConnected ? 'connect' : 'launch',
+      connectedMode: this.connectionMode || 'unknown',
       indexedQuestionCount: this.latestQuestionIndex ? this.latestQuestionIndex.questions.length : 0,
       indexedQuestionSource: this.latestQuestionIndex ? this.latestQuestionIndex.action : null,
       title: snapshot.title,
@@ -464,12 +504,13 @@ class BrowserSession {
     }
 
     const browser = this.browser;
-    const wasConnected = this.isConnected;
+    const connectionMode = this.connectionMode;
     this.browser = null;
     this.page = null;
-    this.isConnected = false;
+    this.connectionMode = null;
+    this.autoIndexPromise = null;
 
-    if (wasConnected) {
+    if (connectionMode === 'connect' || connectionMode === 'attach') {
       this.logger.info('Disconnecting from external browser');
       await browser.disconnect();
       return;

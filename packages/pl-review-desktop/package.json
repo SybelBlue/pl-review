@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",
+    "pl-puppeteer-sidecar": "*",
     "tailwindcss": "^4.2.2"
   }
 }

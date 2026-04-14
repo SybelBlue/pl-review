@@ -1,9 +1,9 @@
 const { resolve } = require('node:path');
-const { BrowserSession } = require('./browser/session');
 const { runCommandLoop } = require('./commands/command-loop');
 const { CommandDispatcher } = require('./commands/command-dispatcher');
 const { parseArgs, renderUsage } = require('./lib/args');
 const { createLogger } = require('./lib/logger');
+const { PuppeteerSidecarService } = require('./service');
 
 async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
@@ -15,16 +15,7 @@ async function main(argv = process.argv.slice(2)) {
 
   const logger = createLogger({ verbose: options.verbose });
   const userDataDir = options.userDataDir || resolve(process.cwd(), '.pl-puppeteer-profile');
-
-  const session = new BrowserSession({
-    logger,
-    browserWSEndpoint: options.browserWSEndpoint,
-    executablePath: options.executablePath,
-    headless: options.headless,
-    readySelectors: options.readySelectors,
-    startUrl: options.url,
-    userDataDir,
-  });
+  const service = new PuppeteerSidecarService({ logger });
 
   let isShuttingDown = false;
 
@@ -37,7 +28,7 @@ async function main(argv = process.argv.slice(2)) {
     logger.info(`Shutting down sidecar (${signal})`);
 
     try {
-      await session.close();
+      await service.close();
     } finally {
       process.exit(0);
     }
@@ -52,9 +43,24 @@ async function main(argv = process.argv.slice(2)) {
   });
 
   try {
-    await session.start();
+    service.on('event', (event) => {
+      if (event?.type !== 'question-indexed' || !event.result) {
+        return;
+      }
 
-    const dispatcher = new CommandDispatcher({ logger, session });
+      process.stdout.write(`${event.heading}:\n${JSON.stringify(event.result, null, 2)}\n`);
+    });
+
+    await service.start({
+      browserWSEndpoint: options.browserWSEndpoint,
+      executablePath: options.executablePath,
+      headless: options.headless,
+      readySelectors: options.readySelectors,
+      startUrl: options.url,
+      userDataDir,
+    });
+
+    const dispatcher = new CommandDispatcher({ logger, session: service });
 
     logger.info('Sidecar ready');
     logger.info('Commands: help, status, current, next, prev, reload, hard-reload, reload-disk, index-questions [courseNumber], index-assessment, goto <url>, sync-refresh, quit');
@@ -65,10 +71,12 @@ async function main(argv = process.argv.slice(2)) {
       showPrompt: Boolean(process.stdin.isTTY),
     });
   } finally {
-    await session.close();
+    await service.close();
   }
 }
 
 module.exports = {
   main,
+  PuppeteerSidecarService,
+  createLogger,
 };

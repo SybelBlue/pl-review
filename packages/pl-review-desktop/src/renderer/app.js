@@ -138,6 +138,7 @@ const state = {
 
 let pdfDropDragDepth = 0;
 let removeDockerOutputListener = null;
+let removePrairieLearnAutomationListener = null;
 const maxDockerLogChars = 180000;
 let isPrairieLearnCommandRunning = false;
 let isPrairieLearnStopping = false;
@@ -145,8 +146,10 @@ let hasReconnectOptions = false;
 let hasAppliedContainerModeDefault = false;
 let draggedCourseRowIndex = null;
 const maxCourseDirectories = 10;
-const webviewEventConsolePrefix = "__PL_REVIEW_WEBVIEW_EVENT__";
 let autoLoadFromDiskPending = false;
+let autoLoadFromDiskInFlight = false;
+let attachedPrairieLearnWebContentsId = null;
+let attachPrairieLearnWebviewPromise = null;
 
 function setPrairieLearnRunState(isRunning) {
   isPrairieLearnCommandRunning = isRunning;
@@ -1569,174 +1572,120 @@ function bindCommandEditorSelection() {
   });
 }
 
-function emitWebviewEvent(payload) {
-  if (!payload || typeof window.reviewApi?.emitWebviewEvent !== "function") {
-    return;
-  }
-
-  window.reviewApi.emitWebviewEvent({
-    ...payload,
-    capturedAt: new Date().toISOString()
-  });
-}
-
-function parseWebviewConsoleEvent(rawMessage) {
-  if (typeof rawMessage !== "string" || !rawMessage.startsWith(webviewEventConsolePrefix)) {
-    return null;
-  }
-
-  const serializedPayload = rawMessage.slice(webviewEventConsolePrefix.length);
-  if (!serializedPayload) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(serializedPayload);
-  } catch (error) {
-    return null;
-  }
-}
-
-function installWebviewClickCapture() {
-  const script = `
-    (() => {
-      if (window.__plReviewClickCaptureInstalled) {
-        return;
-      }
-      window.__plReviewClickCaptureInstalled = true;
-
-      document.addEventListener("click", (event) => {
-        const source = event.target;
-        if (!(source instanceof Element)) {
-          return;
-        }
-
-        const interactive = source.closest("button, a, [role='button'], input[type='button'], input[type='submit']");
-        if (!interactive) {
-          return;
-        }
-
-        const textValue = (interactive.innerText || interactive.textContent || interactive.value || "")
-          .trim()
-          .replace(/\\s+/g, " ")
-          .slice(0, 180);
-        const className = typeof interactive.className === "string" ? interactive.className : "";
-        const href = interactive instanceof HTMLAnchorElement ? interactive.href : "";
-
-        const payload = {
-          type: "button-click",
-          pageUrl: window.location.href,
-          pagePath: window.location.pathname,
-          tagName: interactive.tagName.toLowerCase(),
-          id: interactive.id || "",
-          className: className.slice(0, 180),
-          text: textValue,
-          href: href || ""
-        };
-
-        console.log("${webviewEventConsolePrefix}" + JSON.stringify(payload));
-      }, true);
-    })();
-  `;
-
-  elements.webview.executeJavaScript(script).catch(() => {
-    // Ignore pages that deny script execution.
-  });
-}
-
 function queueAutoLoadFromDiskOnConnect() {
   autoLoadFromDiskPending = state.config.autoLoadFromDiskOnConnect !== false;
 }
 
-function tryAutoLoadFromDiskOnConnect() {
-  if (!autoLoadFromDiskPending) {
+async function ensurePrairieLearnWebviewAttached() {
+  if (elements.webview.hidden) {
+    return null;
+  }
+
+  const webContentsId = elements.webview.getWebContentsId?.();
+  if (!webContentsId) {
+    return null;
+  }
+
+  if (attachedPrairieLearnWebContentsId === webContentsId) {
+    return window.reviewApi.getPrairieLearnStatus();
+  }
+
+  if (attachPrairieLearnWebviewPromise) {
+    return attachPrairieLearnWebviewPromise;
+  }
+
+  attachPrairieLearnWebviewPromise = window.reviewApi
+    .attachPrairieLearnWebview(webContentsId)
+    .then((result) => {
+      attachedPrairieLearnWebContentsId = result?.webContentsId || webContentsId;
+      const status = result?.status || null;
+      if (status?.url) {
+        setCurrentUrl(status.url);
+      }
+      if (status?.title) {
+        state.currentPrairieLearnTitle = status.title;
+      }
+      return result;
+    })
+    .finally(() => {
+      attachPrairieLearnWebviewPromise = null;
+    });
+
+  return attachPrairieLearnWebviewPromise;
+}
+
+async function resetPrairieLearnWebviewAttachment() {
+  attachedPrairieLearnWebContentsId = null;
+  attachPrairieLearnWebviewPromise = null;
+  try {
+    await window.reviewApi.detachPrairieLearnWebview();
+  } catch (error) {
+    // Ignore detach failures during teardown and reconnect flows.
+  }
+}
+
+async function tryAutoLoadFromDiskOnConnect() {
+  if (!autoLoadFromDiskPending || autoLoadFromDiskInFlight) {
     return;
   }
 
-  const script = `
-    (() => {
-      const target = document.querySelector("#navbar-load-from-disk");
-      if (!target || typeof target.click !== "function") {
-        return { clicked: false };
-      }
+  autoLoadFromDiskInFlight = true;
 
-      target.click();
-      return { clicked: true };
-    })();
-  `;
+  try {
+    await ensurePrairieLearnWebviewAttached();
+    await window.reviewApi.reloadPrairieLearnFromDisk();
+    autoLoadFromDiskPending = false;
+  } catch (error) {
+    setPrairieLearnStatus(error?.message || plStatusText.viewFailed, "error");
+  } finally {
+    autoLoadFromDiskInFlight = false;
+  }
+}
 
-  elements.webview
-    .executeJavaScript(script)
-    .then((result) => {
-      if (result?.clicked) {
-        autoLoadFromDiskPending = false;
-        emitWebviewEvent({
-          type: "command-auto-load-from-disk",
-          selector: "#navbar-load-from-disk",
-          url: elements.webview.getURL()
-        });
-      }
-    })
-    .catch(() => {
-      // Ignore pages that deny script execution.
-    });
+function handlePrairieLearnAutomationEvent(payload) {
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
+
+  if (payload.type === "attached" && payload.status) {
+    if (payload.status.url) {
+      setCurrentUrl(payload.status.url);
+    }
+    if (payload.status.title) {
+      state.currentPrairieLearnTitle = payload.status.title;
+    }
+  }
 }
 
 function bindWebviewEvents() {
-  elements.webview.addEventListener("dom-ready", () => {
+  elements.webview.addEventListener("dom-ready", async () => {
     const url = elements.webview.getURL();
     setCurrentUrl(url);
     collapseConnectionPanelOnSuccessfulPlUrl(url);
     updateWebviewNavigationButtons();
-    emitWebviewEvent({
-      type: "dom-ready",
-      url
-    });
-    installWebviewClickCapture();
-    tryAutoLoadFromDiskOnConnect();
+
+    try {
+      await ensurePrairieLearnWebviewAttached();
+      await tryAutoLoadFromDiskOnConnect();
+    } catch (error) {
+      setPrairieLearnStatus(error?.message || plStatusText.viewFailed, "error");
+    }
   });
 
   elements.webview.addEventListener("did-navigate", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
     updateWebviewNavigationButtons();
-    emitWebviewEvent({
-      type: "navigate",
-      url: event.url
-    });
   });
 
   elements.webview.addEventListener("did-navigate-in-page", (event) => {
     setCurrentUrl(event.url);
     collapseConnectionPanelOnSuccessfulPlUrl(event.url);
     updateWebviewNavigationButtons();
-    emitWebviewEvent({
-      type: "navigate-in-page",
-      url: event.url,
-      isMainFrame: Boolean(event.isMainFrame)
-    });
-  });
-
-  elements.webview.addEventListener("did-redirect-navigation", (event) => {
-    emitWebviewEvent({
-      type: "redirect",
-      url: event.url,
-      isInPlace: Boolean(event.isInPlace),
-      isMainFrame: Boolean(event.isMainFrame)
-    });
   });
 
   elements.webview.addEventListener("page-title-updated", (event) => {
     state.currentPrairieLearnTitle = event.title;
-  });
-
-  elements.webview.addEventListener("console-message", (event) => {
-    const payload = parseWebviewConsoleEvent(event.message);
-    if (!payload) {
-      return;
-    }
-
-    emitWebviewEvent(payload);
   });
 
   elements.webview.addEventListener("did-fail-load", () => {
@@ -1774,6 +1723,7 @@ async function handleStopPrairieLearn() {
   } else {
     state.prairieLearnReady = false;
     setPrairieLearnStatus(plStatusText.containerStopped, "idle");
+    await resetPrairieLearnWebviewAttachment();
     elements.webview.src = "about:blank";
     setCurrentUrl("");
     setConfigOverlayOpen(true);
@@ -1970,11 +1920,17 @@ function bindEvents() {
 async function init() {
   bindEvents();
   removeDockerOutputListener = window.reviewApi.onDockerOutput(handleDockerOutput);
+  removePrairieLearnAutomationListener = window.reviewApi.onPrairieLearnAutomationEvent(handlePrairieLearnAutomationEvent);
   window.addEventListener("beforeunload", () => {
     if (typeof removeDockerOutputListener === "function") {
       removeDockerOutputListener();
       removeDockerOutputListener = null;
     }
+    if (typeof removePrairieLearnAutomationListener === "function") {
+      removePrairieLearnAutomationListener();
+      removePrairieLearnAutomationListener = null;
+    }
+    void window.reviewApi.detachPrairieLearnWebview();
   });
   state.config = await window.reviewApi.getConfig();
   state.config = await ensureStructuredJobsDirectory(state.config);

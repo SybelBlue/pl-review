@@ -17,13 +17,21 @@ contextBridge.exposeInMainWorld("reviewApi", {
   reconnectPrairieLearn: (config) => ipcRenderer.invoke("reconnect-prairielearn", config),
   stopPrairieLearnStart: () => ipcRenderer.invoke("stop-prairielearn-start"),
   stopConnectedPrairieLearn: (baseUrl) => ipcRenderer.invoke("stop-connected-prairielearn", baseUrl),
+  attachPrairieLearnWebview: (webContentsId) => ipcRenderer.invoke("attach-prairielearn-webview", webContentsId),
+  detachPrairieLearnWebview: () => ipcRenderer.invoke("detach-prairielearn-webview"),
+  getPrairieLearnStatus: () => ipcRenderer.invoke("get-prairielearn-status"),
+  reloadPrairieLearnFromDisk: () => ipcRenderer.invoke("reload-prairielearn-from-disk"),
   onDockerOutput: (handler) => {
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on("docker-output", listener);
     return () => ipcRenderer.removeListener("docker-output", listener);
   },
+  onPrairieLearnAutomationEvent: (handler) => {
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on("prairielearn-automation-event", listener);
+    return () => ipcRenderer.removeListener("prairielearn-automation-event", listener);
+  },
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
-  emitWebviewEvent: (payload) => ipcRenderer.send("webview-event", payload),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   buildPdfUrl: (filePath, page = 1) => {
     const url = pathToFileURL(filePath);

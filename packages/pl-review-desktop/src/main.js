@@ -1,9 +1,13 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, webContents } = require("electron");
 const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { PuppeteerSidecarService, createLogger } = require("pl-puppeteer-sidecar");
+
+const REMOTE_DEBUGGING_PORT = Number(process.env.PL_REVIEW_REMOTE_DEBUGGING_PORT) || 8315;
+app.commandLine.appendSwitch("remote-debugging-port", String(REMOTE_DEBUGGING_PORT));
 
 const SETTINGS_FILE = "settings.json";
 const DEFAULT_CONFIG = {
@@ -21,6 +25,15 @@ let devWatchers = [];
 let rendererReloadTimer = null;
 let restartTimer = null;
 let activeStartRun = null;
+let cachedBrowserWSEndpoint = null;
+
+const prairieLearnSidecar = new PuppeteerSidecarService({
+  logger: createLogger({ verbose: process.env.PL_REVIEW_SIDECAR_VERBOSE === "1" })
+});
+
+prairieLearnSidecar.on("event", (payload) => {
+  sendPrairieLearnAutomationEvent(payload);
+});
 
 function getSettingsPath() {
   return path.join(app.getPath("userData"), SETTINGS_FILE);
@@ -107,12 +120,94 @@ async function ensureJobsDirectory(existingPath = "") {
   return fs.mkdtemp(tempPrefix);
 }
 
+async function getRemoteDebuggingBrowserWSEndpoint(forceRefresh = false) {
+  if (!forceRefresh && cachedBrowserWSEndpoint) {
+    return cachedBrowserWSEndpoint;
+  }
+
+  const endpointUrl = `http://127.0.0.1:${REMOTE_DEBUGGING_PORT}/json/version`;
+  const deadline = Date.now() + 5000;
+  let lastError = null;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(endpointUrl);
+      if (!response.ok) {
+        throw new Error(`Remote debugging endpoint returned ${response.status}.`);
+      }
+
+      const payload = await response.json();
+      const browserWSEndpoint = String(payload?.webSocketDebuggerUrl || "").trim();
+      if (!browserWSEndpoint) {
+        throw new Error("Remote debugging endpoint did not provide a browser WebSocket URL.");
+      }
+
+      cachedBrowserWSEndpoint = browserWSEndpoint;
+      return browserWSEndpoint;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+  }
+
+  throw new Error(lastError?.message || "Could not resolve the Electron DevTools WebSocket endpoint.");
+}
+
+function getGuestWebContents(hostContents, guestWebContentsId) {
+  const numericId = Number(guestWebContentsId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    throw new Error("A valid webContents id is required.");
+  }
+
+  const guestContents = webContents.fromId(numericId);
+  if (!guestContents || guestContents.isDestroyed()) {
+    throw new Error(`Could not find guest webContents ${numericId}.`);
+  }
+
+  if (guestContents.hostWebContents !== hostContents) {
+    throw new Error(`webContents ${numericId} is not owned by the requesting renderer.`);
+  }
+
+  return guestContents;
+}
+
+async function getGuestTargetId(guestContents) {
+  const debuggerApi = guestContents.debugger;
+  const attachedHere = !debuggerApi.isAttached();
+
+  try {
+    if (attachedHere) {
+      debuggerApi.attach("1.3");
+    }
+
+    const response = await debuggerApi.sendCommand("Target.getTargetInfo");
+    const targetId = String(response?.targetInfo?.targetId || "").trim();
+    if (!targetId) {
+      throw new Error("DevTools target id was not available for the guest webContents.");
+    }
+
+    return targetId;
+  } finally {
+    if (attachedHere && debuggerApi.isAttached()) {
+      debuggerApi.detach();
+    }
+  }
+}
+
 function sendDockerOutput(payload) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
 
   mainWindow.webContents.send("docker-output", payload);
+}
+
+function sendPrairieLearnAutomationEvent(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send("prairielearn-automation-event", payload);
 }
 
 function runStartCommandWithStreaming(command, runState) {
@@ -1029,17 +1124,23 @@ ipcMain.handle("restart-prairielearn", async (_event, config) => restartPrairieL
 ipcMain.handle("reconnect-prairielearn", async (_event, config) => reconnectPrairieLearn(config));
 ipcMain.handle("stop-prairielearn-start", async () => stopPrairieLearnStart());
 ipcMain.handle("stop-connected-prairielearn", async (_event, baseUrl) => stopConnectedPrairieLearn(baseUrl));
+ipcMain.handle("attach-prairielearn-webview", async (event, guestWebContentsId) => {
+  const guestContents = getGuestWebContents(event.sender, guestWebContentsId);
+  const targetId = await getGuestTargetId(guestContents);
+  const browserWSEndpoint = await getRemoteDebuggingBrowserWSEndpoint();
+  return prairieLearnSidecar.attach({
+    browserWSEndpoint,
+    targetId,
+    webContentsId: guestContents.id,
+  });
+});
+ipcMain.handle("detach-prairielearn-webview", async () => prairieLearnSidecar.detach());
+ipcMain.handle("get-prairielearn-status", async () => prairieLearnSidecar.getStatus());
+ipcMain.handle("reload-prairielearn-from-disk", async () => prairieLearnSidecar.reloadFromDisk());
 ipcMain.handle("open-external", async (_event, url) => {
   if (url) {
     await shell.openExternal(url);
   }
-});
-ipcMain.on("webview-event", (_event, payload) => {
-  if (!payload || typeof payload !== "object") {
-    return;
-  }
-
-  console.log("[webview-event]", payload);
 });
 
 app.whenReady().then(() => {
@@ -1061,4 +1162,5 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopDevWatchers();
+  void prairieLearnSidecar.close();
 });

@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node ./bin/pl-sidecar.js",
-    "check": "node --check ./src/index.js && node --check ./src/browser/session.js && node --check ./src/prairielearn/page-actions.js && node --check ./src/commands/command-dispatcher.js && node --check ./src/commands/command-loop.js && node --check ./src/lib/args.js && node --check ./src/lib/logger.js"
+    "test": "node --test ./test/service.test.js",
+    "check": "node --check ./src/index.js && node --check ./src/service.js && node --check ./src/browser/session.js && node --check ./src/prairielearn/page-actions.js && node --check ./src/commands/command-dispatcher.js && node --check ./src/commands/command-loop.js && node --check ./src/lib/args.js && node --check ./src/lib/logger.js && npm run test"
   },
   "engines": {
     "node": ">=18.17"
@@ -18,4 +19,3 @@
     "puppeteer": "^24.0.0"
   }
 }
-
