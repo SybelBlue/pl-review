@@ -30,7 +30,10 @@ const configStore = createConfigStore({
 });
 const reviewService = createReviewService({
   readConfig: configStore.readConfig,
-  writeConfig: configStore.writeConfig
+  writeConfig: configStore.writeConfig,
+  sidecar: prairieLearnSidecar,
+  fs,
+  path
 });
 
 const commandLineService = createCommandLineService({
@@ -249,6 +252,7 @@ ipcMain.handle("go-to-next-prairielearn-question", async () => prairieLearnSidec
 ipcMain.handle("go-to-previous-prairielearn-question", async () => prairieLearnSidecar.prev());
 ipcMain.handle("go-to-prairielearn-url", async (_event, url) => prairieLearnSidecar.goto(url));
 ipcMain.handle("load-review-context", async () => reviewService.loadContext());
+ipcMain.handle("select-review-sequence", async (_event, sequenceId) => reviewService.selectSequence(sequenceId));
 ipcMain.handle("select-review-bank", async (_event, bankSlug) => reviewService.selectBank(bankSlug));
 ipcMain.handle("search-review-questions", async (_event, bankSlug, query) => reviewService.search(bankSlug, query));
 ipcMain.handle("update-review-tags", async (_event, bankSlug, tags) => reviewService.setTags(bankSlug, tags));

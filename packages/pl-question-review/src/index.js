@@ -14,6 +14,7 @@ const DEFAULT_CONFIG = {
   waitingAssessmentSlug: 'waiting',
   waitingAssessmentTitle: 'Waiting Questions',
   waitingAssessmentNumber: 'WAIT',
+  assessmentRoot: '',
 };
 
 function normalizeReviewConfig(config = {}) {
@@ -31,6 +32,7 @@ function normalizeReviewConfig(config = {}) {
     waitingAssessmentSlug: String(config.waitingAssessmentSlug || DEFAULT_CONFIG.waitingAssessmentSlug),
     waitingAssessmentTitle: String(config.waitingAssessmentTitle || DEFAULT_CONFIG.waitingAssessmentTitle),
     waitingAssessmentNumber: String(config.waitingAssessmentNumber || DEFAULT_CONFIG.waitingAssessmentNumber),
+    assessmentRoot: String(config.assessmentRoot || DEFAULT_CONFIG.assessmentRoot),
   };
 }
 
@@ -449,6 +451,350 @@ async function applyAssessmentUpdate(kind, { manifest, bank, relpathValue, confi
   };
 }
 
+function slugifySequenceId(sequenceId) {
+  return Buffer.from(String(sequenceId || 'sequence'), 'utf8')
+    .toString('base64')
+    .replace(/[/+=]/g, '_')
+    .slice(0, 120);
+}
+
+function getSequenceStatePath(config, sequenceId, env) {
+  return env.path.join(resolveRepoPath(env, config.stateRoot), `${slugifySequenceId(sequenceId)}.json`);
+}
+
+function normalizeGenericState(parsed = {}) {
+  const decisions = parsed.decisions && typeof parsed.decisions === 'object' ? parsed.decisions : {};
+  for (const decision of Object.values(decisions)) {
+    if (decision && decision.status === 'rejected') {
+      decision.status = 'waiting';
+    }
+  }
+
+  return {
+    cursor: Number(parsed.cursor) || 0,
+    decisions,
+    history: Array.isArray(parsed.history) ? parsed.history : [],
+    tagCatalog: Array.isArray(parsed.tagCatalog || parsed.tag_catalog)
+      ? (parsed.tagCatalog || parsed.tag_catalog).map((tag) => String(tag))
+      : [],
+    createdAt: parsed.createdAt || parsed.created_at || nowIso(),
+    updatedAt: parsed.updatedAt || parsed.updated_at || null,
+    sequenceId: parsed.sequenceId || parsed.sequence_id || '',
+    sequenceTitle: parsed.sequenceTitle || parsed.sequence_title || '',
+    sourceType: parsed.sourceType || parsed.source_type || 'generic',
+  };
+}
+
+async function loadGenericState(statePath, env) {
+  if (!(await exists(statePath, env))) {
+    return normalizeGenericState();
+  }
+  return normalizeGenericState(await readJsonFile(statePath, env));
+}
+
+function getSequenceSummary(sequence, decisions) {
+  const approved = Object.values(decisions).filter((entry) => entry?.status === 'approved').length;
+  const waiting = Object.values(decisions).filter((entry) => entry?.status === 'waiting').length;
+  const erroneous = Object.values(decisions).filter((entry) => entry?.status === 'erroneous').length;
+  const total = sequence.items.length;
+  const done = approved + waiting + erroneous;
+  return {
+    approved,
+    waiting,
+    erroneous,
+    pending: Math.max(0, total - done),
+    total,
+    done,
+  };
+}
+
+async function resolveSequenceItem(sequence, item, env, options = {}) {
+  if (typeof options.resolveItem === 'function') {
+    const resolved = await options.resolveItem(item, sequence);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  if (item.questionDir) {
+    return {
+      questionDir: item.questionDir,
+      relpath: item.relpath || '',
+      questionId: item.questionId || item.relpath || item.id,
+      courseRoot: item.courseRoot || '',
+    };
+  }
+
+  return null;
+}
+
+async function makeSequenceCurrentItem(sequence, item, env, options = {}) {
+  if (!item) {
+    return null;
+  }
+
+  const resolved = await resolveSequenceItem(sequence, item, env, options);
+  const tags = resolved?.questionDir ? await getQuestionTags(resolved.questionDir, env) : [];
+  return {
+    itemId: item.id,
+    qid: item.qid || '',
+    title: item.title || '',
+    link: item.link || '',
+    topic: item.topic || '',
+    tags,
+    reviewTags: filterReviewTags(tags),
+    resolutionStatus: resolved ? 'resolved' : 'unresolved',
+    questionDir: resolved?.questionDir || '',
+    relpath: resolved?.relpath || '',
+    questionId: resolved?.questionId || item.id,
+    reviewFiles: resolved?.questionDir ? reviewFilePaths(resolved.questionDir, env) : [],
+  };
+}
+
+async function searchSequenceItems(config, sequence, query = '', options = {}) {
+  const env = createEnvironment(options);
+  const statePath = getSequenceStatePath(normalizeReviewConfig(config), sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  const pending = remainingQuestionIndices(
+    sequence.items.map((item) => ({ relpath: item.id })),
+    state.decisions
+  );
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+
+  return pending
+    .filter((index, pendingIndex) => {
+      if (!normalizedQuery) {
+        return true;
+      }
+      const item = sequence.items[index];
+      return [item.id, item.qid, item.title, item.topic, item.link, String(index + 1), String(pendingIndex + 1)]
+        .join('\n')
+        .toLowerCase()
+        .includes(normalizedQuery);
+    })
+    .map((index, position) => {
+      const item = sequence.items[index];
+      return {
+        index,
+        itemId: item.id,
+        relpath: item.relpath || item.qid || item.id,
+        title: item.title || item.qid || item.id,
+        qid: item.qid || '',
+        pendingIndex: position + 1,
+        skipped: index < state.cursor,
+      };
+    });
+}
+
+async function buildSequenceSnapshot(config, sequence, options = {}) {
+  const env = createEnvironment(options);
+  const normalized = normalizeReviewConfig(config);
+  const statePath = getSequenceStatePath(normalized, sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  state.sequenceId = sequence.sequenceId;
+  state.sequenceTitle = sequence.sequenceTitle || sequence.title || sequence.sequenceId;
+  state.sourceType = sequence.sourceType || 'generic';
+  await saveState(statePath, state, env);
+
+  const currentIndex = firstUnreviewedIndex(state.cursor, sequence.items.map((item) => ({ relpath: item.id })), state.decisions);
+  const currentItem = currentIndex === null ? null : await makeSequenceCurrentItem(sequence, sequence.items[currentIndex], env, options);
+  const directoryEntries = await searchSequenceItems(normalized, sequence, '', options);
+
+  return {
+    config: normalized,
+    sourceType: sequence.sourceType || 'generic',
+    sequences: [
+      {
+        sequenceId: sequence.sequenceId,
+        sequenceTitle: sequence.sequenceTitle || sequence.title || sequence.sequenceId,
+        totalItems: sequence.items.length,
+        summary: getSequenceSummary(sequence, state.decisions),
+      },
+    ],
+    currentSequenceId: sequence.sequenceId,
+    session: {
+      sequenceId: sequence.sequenceId,
+      sequenceTitle: sequence.sequenceTitle || sequence.title || sequence.sequenceId,
+      statePath,
+      summary: getSequenceSummary(sequence, state.decisions),
+      cursor: state.cursor,
+      canUndo: state.history.length > 0,
+      finished: currentIndex === null,
+      currentIndex,
+      totalQuestions: sequence.items.length,
+      currentItem,
+      directoryEntries,
+      tagCatalog: [...new Set(filterReviewTags(state.tagCatalog).concat(currentItem?.reviewTags || []))].sort(),
+    },
+  };
+}
+
+async function updateSequenceReviewTags(config, sequence, tags, options = {}) {
+  const env = createEnvironment(options);
+  const normalized = normalizeReviewConfig(config);
+  const statePath = getSequenceStatePath(normalized, sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  const currentIndex = firstUnreviewedIndex(state.cursor, sequence.items.map((item) => ({ relpath: item.id })), state.decisions);
+  if (currentIndex === null) {
+    return buildSequenceSnapshot(normalized, sequence, options);
+  }
+
+  const item = sequence.items[currentIndex];
+  const resolved = await resolveSequenceItem(sequence, item, env, options);
+  if (!resolved?.questionDir) {
+    throw new Error('Current sequence item could not be resolved to a local question directory.');
+  }
+
+  const currentTags = await getQuestionTags(resolved.questionDir, env);
+  const requestedTags = [...new Set((Array.isArray(tags) ? tags : []).map(normalizeReviewTag).filter(Boolean))].sort();
+  const nextTags = currentTags.filter((tag) => !String(tag).startsWith('rv:')).concat(requestedTags);
+  await setQuestionTags(resolved.questionDir, nextTags, env);
+  const catalog = new Set(filterReviewTags(state.tagCatalog));
+  for (const tag of requestedTags) {
+    catalog.add(tag);
+  }
+  state.tagCatalog = [...catalog].sort();
+  await saveState(statePath, state, env);
+  return buildSequenceSnapshot(normalized, sequence, options);
+}
+
+async function jumpToSequenceItem(config, sequence, questionIndex, options = {}) {
+  const env = createEnvironment(options);
+  const normalized = normalizeReviewConfig(config);
+  const statePath = getSequenceStatePath(normalized, sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  state.cursor = Math.max(0, Math.min(Number(questionIndex) || 0, Math.max(0, sequence.items.length - 1)));
+  await saveState(statePath, state, env);
+  return buildSequenceSnapshot(normalized, sequence, options);
+}
+
+async function undoLastSequenceReviewAction(config, sequence, options = {}) {
+  const env = createEnvironment(options);
+  const normalized = normalizeReviewConfig(config);
+  const statePath = getSequenceStatePath(normalized, sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  if (state.history.length === 0) {
+    return { message: 'Nothing to undo.', snapshot: await buildSequenceSnapshot(normalized, sequence, options) };
+  }
+
+  const entry = state.history.pop();
+  state.cursor = Number(entry.cursorBefore) || 0;
+  if (['approve', 'approve-format', 'waiting', 'erroneous'].includes(entry.action)) {
+    if (entry.prevDecision == null) {
+      delete state.decisions[entry.itemId];
+    } else {
+      state.decisions[entry.itemId] = entry.prevDecision;
+    }
+  }
+  if (entry.copiedTo) {
+    if (entry.createdCopyDir) {
+      await env.fs.rm(String(entry.copiedTo), { recursive: true, force: true });
+    }
+  }
+  if (Array.isArray(entry.assessmentBackups)) {
+    for (const backup of [...entry.assessmentBackups].reverse()) {
+      await restoreFileBackup(backup, env);
+    }
+  }
+  await saveState(statePath, state, env);
+  return {
+    message: `Undid ${entry.action} for ${entry.itemId}.`,
+    snapshot: await buildSequenceSnapshot(normalized, sequence, options),
+  };
+}
+
+async function applySequenceReviewAction(config, sequence, action, options = {}) {
+  const env = createEnvironment(options);
+  const normalized = normalizeReviewConfig(config);
+  const statePath = getSequenceStatePath(normalized, sequence.sequenceId, env);
+  const state = await loadGenericState(statePath, env);
+  const currentIndex = firstUnreviewedIndex(state.cursor, sequence.items.map((item) => ({ relpath: item.id })), state.decisions);
+  if (currentIndex === null) {
+    return { message: 'All sequence items are reviewed.', snapshot: await buildSequenceSnapshot(normalized, sequence, options) };
+  }
+
+  const item = sequence.items[currentIndex];
+  const resolved = await resolveSequenceItem(sequence, item, env, options);
+  if (!resolved?.questionDir || !resolved?.relpath) {
+    throw new Error('Current sequence item could not be resolved to a local question directory and relpath.');
+  }
+
+  if (action === 'skip') {
+    state.history.push({ action: 'skip', itemId: item.id, cursorBefore: currentIndex });
+    state.cursor = currentIndex + 1;
+    await saveState(statePath, state, env);
+    return { message: `Skipped ${item.title || item.id}.`, snapshot: await buildSequenceSnapshot(normalized, sequence, options) };
+  }
+
+  const previousDecision = state.decisions[item.id] || null;
+  let targetRoot = normalized.reviewedRoot;
+  if (action === 'waiting') {
+    targetRoot = normalized.waitingRoot;
+  } else if (action === 'erroneous') {
+    targetRoot = normalized.erroneousRoot;
+  }
+
+  const copy = await copyQuestionDirectory(resolved.questionDir, resolveRepoPath(env, targetRoot), resolved.relpath, env);
+  if (action === 'approve-format') {
+    await addTagToQuestionInfo(copy.destination, 'rv:revise-format', env);
+  }
+
+  let assessmentBackups = [];
+  let assessmentMessage = '';
+  if (action === 'waiting' || action === 'erroneous') {
+    const assessmentRoot =
+      normalized.assessmentRoot || (resolved.courseRoot ? env.path.join(resolved.courseRoot, 'assessments') : '');
+    if (assessmentRoot) {
+      const targetInfoPath = env.path.join(
+        assessmentRoot,
+        action === 'waiting' ? normalized.waitingAssessmentSlug : normalized.erroneousAssessmentSlug,
+        'infoAssessment.json'
+      );
+      const assessment = await ensureAssessmentInfo({
+        assessmentInfoPath: targetInfoPath,
+        bankTitle: sequence.sequenceTitle || sequence.title || sequence.sequenceId,
+        questionId: resolved.questionId || resolved.relpath,
+        setName: 'Homework',
+        moduleName: 'QTI Banks',
+        assessmentType: 'Homework',
+        assessmentTitle: action === 'waiting' ? normalized.waitingAssessmentTitle : normalized.erroneousAssessmentTitle,
+        assessmentNumber: action === 'waiting' ? normalized.waitingAssessmentNumber : normalized.erroneousAssessmentNumber,
+        categoryLabel: action,
+        env,
+      });
+      assessmentBackups = assessment.backups;
+      assessmentMessage = assessment.changed ? ` Updated ${action} assessment membership.` : '';
+    }
+  }
+
+  state.decisions[item.id] = {
+    status: action === 'approve-format' ? 'approved' : action,
+    reviewedAt: nowIso(),
+    source: resolved.questionDir,
+    copiedTo: copy.destination,
+    qid: item.qid || '',
+    title: item.title || '',
+    relpath: resolved.relpath,
+    reviseFormat: action === 'approve-format',
+  };
+  state.history.push({
+    action,
+    itemId: item.id,
+    cursorBefore: currentIndex,
+    prevDecision: previousDecision,
+    copiedTo: copy.destination,
+    createdCopyDir: !copy.destinationExists,
+    assessmentBackups,
+  });
+  state.cursor = currentIndex + 1;
+  await saveState(statePath, state, env);
+
+  return {
+    message: `${action} applied to ${item.title || item.id}.${assessmentMessage}`.trim(),
+    snapshot: await buildSequenceSnapshot(normalized, sequence, options),
+  };
+}
+
 function getReviewStatusSummary(bank, decisions) {
   const approved = Object.values(decisions).filter((entry) => entry?.status === 'approved').length;
   const waiting = Object.values(decisions).filter((entry) => entry?.status === 'waiting').length;
@@ -801,6 +1147,12 @@ module.exports = {
   normalizeReviewConfig,
   loadReviewContext,
   loadBankSession,
+  buildSequenceSnapshot,
+  searchSequenceItems,
+  updateSequenceReviewTags,
+  jumpToSequenceItem,
+  applySequenceReviewAction,
+  undoLastSequenceReviewAction,
   searchPendingQuestions,
   updateReviewTags,
   jumpToQuestion,

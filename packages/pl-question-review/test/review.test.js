@@ -5,6 +5,9 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const {
   loadReviewContext,
+  buildSequenceSnapshot,
+  updateSequenceReviewTags,
+  applySequenceReviewAction,
   searchPendingQuestions,
   updateReviewTags,
   applyReviewAction,
@@ -144,4 +147,57 @@ test('applyReviewAction waiting updates assessment and undo restores state', asy
   const undone = await undoLastReviewAction(fixture.config, 'bank-a', { cwd: fixture.root });
   assert.equal(undone.snapshot.session.summary.waiting, 0);
   await assert.rejects(fs.readFile(waitingAssessmentPath, 'utf8'));
+});
+
+test('generic live sequence snapshot resolves local question dirs and persists review tags', async () => {
+  const fixture = await makeFixture();
+  const sequence = {
+    sourceType: 'sidecar',
+    sequenceId: 'live-sequence-1',
+    sequenceTitle: 'Live Sequence',
+    items: [{ id: 'Q1', qid: 'Q1', title: 'Question One', link: 'http://localhost/q1' }],
+  };
+  const resolveItem = async () => ({
+    questionDir: path.join(fixture.root, 'questions', 'review', 'bank-a', 'q1'),
+    relpath: 'bank-a/q1',
+    questionId: 'bank-a/q1',
+    courseRoot: fixture.root,
+  });
+
+  const snapshot = await buildSequenceSnapshot(fixture.config, sequence, { cwd: fixture.root, resolveItem });
+  assert.equal(snapshot.currentSequenceId, 'live-sequence-1');
+  assert.equal(snapshot.session.currentItem.resolutionStatus, 'resolved');
+
+  const tagged = await updateSequenceReviewTags(fixture.config, sequence, ['checked'], { cwd: fixture.root, resolveItem });
+  assert.deepEqual(tagged.session.currentItem.reviewTags, ['rv:checked']);
+});
+
+test('generic live sequence actions copy question content and advance queue', async () => {
+  const fixture = await makeFixture();
+  const sequence = {
+    sourceType: 'sidecar',
+    sequenceId: 'live-sequence-2',
+    sequenceTitle: 'Live Sequence',
+    items: [
+      { id: 'Q1', qid: 'Q1', title: 'Question One', link: 'http://localhost/q1' },
+      { id: 'Q2', qid: 'Q2', title: 'Question Two', link: 'http://localhost/q2' },
+    ],
+  };
+  const resolveItem = async (item) => ({
+    questionDir: path.join(fixture.root, 'questions', 'review', 'bank-a', item.id === 'Q1' ? 'q1' : 'q2'),
+    relpath: `bank-a/${item.id === 'Q1' ? 'q1' : 'q2'}`,
+    questionId: `bank-a/${item.id === 'Q1' ? 'q1' : 'q2'}`,
+    courseRoot: fixture.root,
+  });
+
+  const applied = await applySequenceReviewAction(fixture.config, sequence, 'approve', {
+    cwd: fixture.root,
+    resolveItem,
+    randomUUID: () => 'generic-uuid',
+  });
+  assert.equal(applied.snapshot.session.currentItem.qid, 'Q2');
+  const copiedInfo = JSON.parse(
+    await fs.readFile(path.join(fixture.root, 'questions', 'reviewed', 'bank-a', 'q1', 'info.json'), 'utf8')
+  );
+  assert.equal(copiedInfo.uuid, 'generic-uuid');
 });

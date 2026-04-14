@@ -77,6 +77,20 @@ export async function init({
       autoLoadFromDiskOnConnect: true,
       courseDirectory: "",
       courseDirectories: [],
+      reviewManifestPath: "questions/review/_transpile_manifest.json",
+      reviewSourceType: "sidecar",
+      reviewSequenceId: "",
+      reviewBankSlug: "",
+      reviewStateRoot: ".automation/review_state",
+      reviewReviewedRoot: "questions/reviewed",
+      reviewErroneousRoot: "questions/erroneous",
+      reviewWaitingRoot: "questions/waiting",
+      reviewErroneousAssessmentSlug: "erroneous",
+      reviewErroneousAssessmentTitle: "Erroneous Questions",
+      reviewErroneousAssessmentNumber: "ERR",
+      reviewWaitingAssessmentSlug: "waiting",
+      reviewWaitingAssessmentTitle: "Waiting Questions",
+      reviewWaitingAssessmentNumber: "WAIT",
       jobsDirectory: "",
       customStartCommand: "",
       startCommand: ""
@@ -268,7 +282,9 @@ export async function init({
       snapshot.config.waitingAssessmentTitle || state.config.reviewWaitingAssessmentTitle || "";
     state.config.reviewWaitingAssessmentNumber =
       snapshot.config.waitingAssessmentNumber || state.config.reviewWaitingAssessmentNumber || "";
+    state.config.reviewSequenceId = snapshot.currentSequenceId || state.config.reviewSequenceId || "";
     state.config.reviewBankSlug = snapshot.currentBankSlug || state.config.reviewBankSlug || "";
+    state.config.reviewSourceType = snapshot.sourceType || state.config.reviewSourceType || "sidecar";
   }
 
   function applyReviewSnapshot(snapshot, message = "") {
@@ -282,14 +298,14 @@ export async function init({
   }
 
   async function jumpToReviewQuestion(questionIndex) {
-    const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
-    if (!bankSlug) {
+    const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+    if (!sequenceId) {
       return;
     }
-    const snapshot = await windowRef.reviewApi.jumpToReviewQuestion(bankSlug, questionIndex);
+    const snapshot = await windowRef.reviewApi.jumpToReviewQuestion(sequenceId, questionIndex);
     applyReviewSnapshot(snapshot, `Jumped to question ${Number(questionIndex) + 1}.`);
     if (state.review.directoryQuery) {
-      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
       renderReviewLocal();
     }
   }
@@ -338,18 +354,20 @@ export async function init({
     }
 
     const snapshot = state.review.context;
-    const banks = snapshot?.banks || [];
+    const banks = snapshot?.sequences || snapshot?.banks || [];
     if (elements.reviewBankSelect) {
       elements.reviewBankSelect.innerHTML = "";
       const placeholder = documentRef.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = banks.length > 0 ? "Choose a bank..." : "No banks loaded";
+      placeholder.textContent = banks.length > 0 ? "Choose a sequence..." : "No sequences loaded";
       elements.reviewBankSelect.append(placeholder);
       banks.forEach((bank) => {
         const option = documentRef.createElement("option");
-        option.value = bank.bankSlug;
-        option.textContent = `${bank.bankTitle} (${bank.summary.done}/${bank.summary.total})`;
-        option.selected = bank.bankSlug === (snapshot?.currentBankSlug || state.config.reviewBankSlug);
+        option.value = bank.sequenceId || bank.bankSlug;
+        option.textContent = `${bank.sequenceTitle || bank.bankTitle} (${bank.summary.done}/${bank.summary.total})`;
+        option.selected =
+          option.value ===
+          (snapshot?.currentSequenceId || state.config.reviewSequenceId || snapshot?.currentBankSlug || state.config.reviewBankSlug);
         elements.reviewBankSelect.append(option);
       });
     }
@@ -362,7 +380,7 @@ export async function init({
     if (elements.reviewSummary) {
       elements.reviewSummary.textContent = session
         ? `approved=${session.summary.approved} waiting=${session.summary.waiting} erroneous=${session.summary.erroneous} pending=${session.summary.pending}`
-        : "Load a manifest to start review.";
+        : "Load a live sequence or manifest fallback to start review.";
     }
 
     const item = session?.currentItem || null;
@@ -1146,68 +1164,70 @@ export async function init({
       state.config = await windowRef.reviewApi.saveConfig({
         ...state.config,
         reviewManifestPath: elements.reviewManifestInput?.value.trim() || state.config.reviewManifestPath || "",
-        reviewBankSlug: elements.reviewBankSelect?.value || state.config.reviewBankSlug || ""
+        reviewSequenceId: elements.reviewBankSelect?.value || state.config.reviewSequenceId || "",
+        reviewBankSlug: ""
       });
       const snapshot = await windowRef.reviewApi.loadReviewContext();
       applyReviewSnapshot(snapshot, "Reloaded review context.");
     },
-    selectReviewBank: async (bankSlug) => {
+    selectReviewSequence: async (sequenceId) => {
       state.config = await windowRef.reviewApi.saveConfig({
         ...state.config,
         reviewManifestPath: elements.reviewManifestInput?.value.trim() || state.config.reviewManifestPath || "",
-        reviewBankSlug: bankSlug || ""
+        reviewSequenceId: sequenceId || "",
+        reviewBankSlug: ""
       });
-      const snapshot = bankSlug ? await windowRef.reviewApi.selectReviewBank(bankSlug) : await windowRef.reviewApi.loadReviewContext();
-      applyReviewSnapshot(snapshot, bankSlug ? `Loaded bank ${bankSlug}.` : "Review bank cleared.");
+      const snapshot = sequenceId ? await windowRef.reviewApi.selectReviewSequence(sequenceId) : await windowRef.reviewApi.loadReviewContext();
+      applyReviewSnapshot(snapshot, sequenceId ? `Loaded sequence ${sequenceId}.` : "Review sequence cleared.");
     },
     searchReviewQuestions: async (query) => {
       state.review.directoryQuery = query;
-      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
-      if (!bankSlug) {
+      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      if (!sequenceId) {
         state.review.directoryEntries = [];
         renderReviewLocal();
         return;
       }
-      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, query);
+      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, query);
       renderReviewLocal();
     },
     saveReviewTags: async () => {
-      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
-      if (!bankSlug) {
+      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      if (!sequenceId) {
         return;
       }
       const tags = String(elements.reviewTagInput?.value || "")
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean);
-      const snapshot = await windowRef.reviewApi.updateReviewTags(bankSlug, tags);
+      const snapshot = await windowRef.reviewApi.updateReviewTags(sequenceId, tags);
       applyReviewSnapshot(snapshot, "Updated review tags.");
       if (state.review.directoryQuery) {
-        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
         renderReviewLocal();
       }
     },
     applyReviewAction: async (action) => {
-      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
-      if (!bankSlug) {
+      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      if (!sequenceId) {
         return;
       }
-      const result = await windowRef.reviewApi.applyReviewAction(bankSlug, action);
+      const result = await windowRef.reviewApi.applyReviewAction(sequenceId, action);
       applyReviewSnapshot(result?.snapshot, result?.message || `Applied ${action}.`);
       if (state.review.directoryQuery) {
-        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
         renderReviewLocal();
       }
     },
     undoReviewAction: async () => {
-      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
-      if (!bankSlug) {
+      const sequenceId = elements.reviewBankSelect?.value || state.config.reviewSequenceId || state.config.reviewBankSlug || "";
+      if (!sequenceId) {
         return;
       }
-      const result = await windowRef.reviewApi.undoReviewAction(bankSlug);
+      const result = await windowRef.reviewApi.undoReviewAction(sequenceId);
       applyReviewSnapshot(result?.snapshot, result?.message || "Undid review action.");
       if (state.review.directoryQuery) {
-        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(sequenceId, state.review.directoryQuery);
         renderReviewLocal();
       }
     },

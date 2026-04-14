@@ -63,6 +63,7 @@ export async function createRendererTestContext(overrides = {}) {
     goToPreviousPrairieLearnQuestion: async () => ({}),
     goToPrairieLearnUrl: async () => ({}),
     loadReviewContext: async () => ({ banks: [], currentBankSlug: "", session: null }),
+    selectReviewSequence: async () => ({ banks: [], currentBankSlug: "", session: null }),
     selectReviewBank: async () => ({ banks: [], currentBankSlug: "", session: null }),
     searchReviewQuestions: async () => [],
     updateReviewTags: async () => ({ banks: [], currentBankSlug: "", session: null }),

@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("reviewApi", {
   goToPreviousPrairieLearnQuestion: () => ipcRenderer.invoke("go-to-previous-prairielearn-question"),
   goToPrairieLearnUrl: (url) => ipcRenderer.invoke("go-to-prairielearn-url", url),
   loadReviewContext: () => ipcRenderer.invoke("load-review-context"),
+  selectReviewSequence: (sequenceId) => ipcRenderer.invoke("select-review-sequence", sequenceId),
   selectReviewBank: (bankSlug) => ipcRenderer.invoke("select-review-bank", bankSlug),
   searchReviewQuestions: (bankSlug, query) => ipcRenderer.invoke("search-review-questions", bankSlug, query),
   updateReviewTags: (bankSlug, tags) => ipcRenderer.invoke("update-review-tags", bankSlug, tags),

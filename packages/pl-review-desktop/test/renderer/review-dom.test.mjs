@@ -7,11 +7,12 @@ function makeSnapshot({
   relpath = "bank-a/q1",
   title = "Question One",
   reviewTags = ["rv:checked"],
-  currentBankSlug = "bank-a",
+  currentSequenceId = "sidecar:bank-a",
   directoryEntries = [{ index: 0, pendingIndex: 1, relpath: "bank-a/q1", title: "Question One", skipped: false }],
   summary = { approved: 0, waiting: 0, erroneous: 0, pending: 1, total: 1, done: 0 }
 } = {}) {
   return {
+    sourceType: "sidecar",
     config: {
       manifestPath: "questions/review/_transpile_manifest.json",
       stateRoot: ".automation/review_state",
@@ -25,11 +26,11 @@ function makeSnapshot({
       waitingAssessmentTitle: "Waiting Questions",
       waitingAssessmentNumber: "WAIT"
     },
-    banks: [{ bankSlug: "bank-a", bankTitle: "Bank A", summary }],
-    currentBankSlug,
+    sequences: [{ sequenceId: currentSequenceId, sequenceTitle: "Current PrairieLearn sequence", summary }],
+    currentSequenceId,
     session: {
-      bankSlug: "bank-a",
-      bankTitle: "Bank A",
+      sequenceId: currentSequenceId,
+      sequenceTitle: "Current PrairieLearn sequence",
       statePath: "/tmp/bank-a.json",
       summary,
       cursor: 0,
@@ -54,7 +55,7 @@ test("review DOM loads bank context and applies review actions", async () => {
   const context = await createRendererTestContext({
     reviewApi: {
       loadReviewContext: async () => snapshot,
-      selectReviewBank: async () => snapshot,
+      selectReviewSequence: async () => snapshot,
       searchReviewQuestions: async () => snapshot.session.directoryEntries,
       updateReviewTags: async (_bankSlug, tags) => {
         snapshot = makeSnapshot({ reviewTags: tags.map((tag) => (tag.startsWith("rv:") ? tag : `rv:${tag}`)) });
@@ -81,7 +82,7 @@ test("review DOM loads bank context and applies review actions", async () => {
       cryptoRef: { randomUUID: () => "uuid-1" }
     });
 
-    assert.equal(context.document.getElementById("review-bank-select").value, "bank-a");
+    assert.equal(context.document.getElementById("review-bank-select").value, "sidecar:bank-a");
     assert.match(context.document.getElementById("review-current-title").textContent, /Question One/);
 
     const tagInput = context.document.getElementById("review-tag-input");

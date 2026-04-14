@@ -6,6 +6,8 @@ const DEFAULT_CONFIG = {
   autoLoadFromDiskOnConnect: true,
   courseDirectory: "",
   reviewManifestPath: "questions/review/_transpile_manifest.json",
+  reviewSourceType: "sidecar",
+  reviewSequenceId: "",
   reviewBankSlug: "",
   reviewStateRoot: ".automation/review_state",
   reviewReviewedRoot: "questions/reviewed",
@@ -37,6 +39,10 @@ function normalizeConfig(config = {}) {
         ? config.autoLoadFromDiskOnConnect
         : DEFAULT_CONFIG.autoLoadFromDiskOnConnect,
     reviewManifestPath: typeof config.reviewManifestPath === "string" ? config.reviewManifestPath : DEFAULT_CONFIG.reviewManifestPath,
+    reviewSourceType: ["sidecar", "manifest"].includes(config.reviewSourceType)
+      ? config.reviewSourceType
+      : DEFAULT_CONFIG.reviewSourceType,
+    reviewSequenceId: typeof config.reviewSequenceId === "string" ? config.reviewSequenceId : DEFAULT_CONFIG.reviewSequenceId,
     reviewBankSlug: typeof config.reviewBankSlug === "string" ? config.reviewBankSlug : DEFAULT_CONFIG.reviewBankSlug,
     reviewStateRoot: typeof config.reviewStateRoot === "string" ? config.reviewStateRoot : DEFAULT_CONFIG.reviewStateRoot,
     reviewReviewedRoot:

@@ -396,6 +396,42 @@ class BrowserSession extends EventEmitter {
     };
   }
 
+  async getIndexedQuestionSequence() {
+    this.ensurePage();
+
+    if (!this.latestQuestionIndex) {
+      await this.maybeAutoIndexAssessmentQuestions();
+      await this.maybeAutoIndexCourseQuestions();
+    }
+
+    if (!this.latestQuestionIndex) {
+      return null;
+    }
+
+    this.updateCurrentQuestionFromUrl(this.page?.url() || null);
+    const { currentIndex, questions } = this.getCurrentQuestionEntry();
+
+    return {
+      sequenceId: buildSequenceId(this.latestQuestionIndex.action, this.latestQuestionIndex.sourceUrl),
+      sourceType: this.latestQuestionIndex.action,
+      sourceUrl: this.latestQuestionIndex.sourceUrl,
+      currentIndex,
+      currentQuestionQid: this.currentQuestionQid,
+      count: questions.length,
+      title: await this.page.title().catch(() => ''),
+      url: this.page.url(),
+      questions: questions.map((question, index) => ({
+        id: question.qid || question.link || `question-${index + 1}`,
+        qid: question.qid || '',
+        title: question.title || '',
+        topic: question.topic || '',
+        tags: Array.isArray(question.tags) ? question.tags : [],
+        link: question.link || '',
+        index,
+      })),
+    };
+  }
+
   registerQuestionIndex(result) {
     if (!result || !Array.isArray(result.questions)) {
       return;
@@ -546,6 +582,10 @@ function normalizeUrlForComparison(url) {
   normalized.hash = '';
   normalized.search = '';
   return normalized.toString();
+}
+
+function buildSequenceId(action, sourceUrl) {
+  return `${action || 'indexed'}:${normalizeUrlForComparison(sourceUrl || '')}`;
 }
 
 module.exports = {

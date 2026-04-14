@@ -115,7 +115,7 @@ export function bindEvents(app) {
     elements.reviewReloadButton.addEventListener("click", app.reloadReviewContext);
   }
   if (elements.reviewBankSelect) {
-    elements.reviewBankSelect.addEventListener("change", (event) => app.selectReviewBank(event.target.value));
+    elements.reviewBankSelect.addEventListener("change", (event) => app.selectReviewSequence(event.target.value));
   }
   if (elements.reviewDirectorySearchInput) {
     elements.reviewDirectorySearchInput.addEventListener("input", (event) => app.searchReviewQuestions(event.target.value));

@@ -145,6 +145,10 @@ class PuppeteerSidecarService extends EventEmitter {
     return this.runSessionMethod('current');
   }
 
+  async getIndexedQuestionSequence() {
+    return this.runSessionMethod('getIndexedQuestionSequence');
+  }
+
   async next() {
     return this.runSessionMethod('next');
   }
