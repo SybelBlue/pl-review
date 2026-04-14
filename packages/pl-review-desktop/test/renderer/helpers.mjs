@@ -24,6 +24,7 @@ export async function createRendererTestContext(overrides = {}) {
 
   const reviewApi = {
     selectPdf: async () => null,
+    selectReviewManifest: async () => null,
     selectDirectory: async () => null,
     ensureJobsDirectory: async (existingPath) => existingPath || "/tmp/pl_ag_jobs-test",
     checkCliDependencies: async () => ({
@@ -57,6 +58,17 @@ export async function createRendererTestContext(overrides = {}) {
     detachPrairieLearnWebview: async () => ({}),
     getPrairieLearnStatus: async () => ({}),
     reloadPrairieLearnFromDisk: async () => ({}),
+    getPrairieLearnCurrent: async () => ({}),
+    goToNextPrairieLearnQuestion: async () => ({}),
+    goToPreviousPrairieLearnQuestion: async () => ({}),
+    goToPrairieLearnUrl: async () => ({}),
+    loadReviewContext: async () => ({ banks: [], currentBankSlug: "", session: null }),
+    selectReviewBank: async () => ({ banks: [], currentBankSlug: "", session: null }),
+    searchReviewQuestions: async () => [],
+    updateReviewTags: async () => ({ banks: [], currentBankSlug: "", session: null }),
+    jumpToReviewQuestion: async () => ({ banks: [], currentBankSlug: "", session: null }),
+    applyReviewAction: async () => ({ message: "", snapshot: { banks: [], currentBankSlug: "", session: null } }),
+    undoReviewAction: async () => ({ message: "", snapshot: { banks: [], currentBankSlug: "", session: null } }),
     onDockerOutput: () => () => {},
     onPrairieLearnAutomationEvent: () => () => {},
     openExternal: async () => {},

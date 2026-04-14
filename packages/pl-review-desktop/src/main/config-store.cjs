@@ -5,6 +5,18 @@ const DEFAULT_CONFIG = {
   commandMode: "structured",
   autoLoadFromDiskOnConnect: true,
   courseDirectory: "",
+  reviewManifestPath: "questions/review/_transpile_manifest.json",
+  reviewBankSlug: "",
+  reviewStateRoot: ".automation/review_state",
+  reviewReviewedRoot: "questions/reviewed",
+  reviewErroneousRoot: "questions/erroneous",
+  reviewWaitingRoot: "questions/waiting",
+  reviewErroneousAssessmentSlug: "erroneous",
+  reviewErroneousAssessmentTitle: "Erroneous Questions",
+  reviewErroneousAssessmentNumber: "ERR",
+  reviewWaitingAssessmentSlug: "waiting",
+  reviewWaitingAssessmentTitle: "Waiting Questions",
+  reviewWaitingAssessmentNumber: "WAIT",
   jobsDirectory: "",
   customStartCommand: "",
   startCommand: ""
@@ -24,6 +36,39 @@ function normalizeConfig(config = {}) {
       typeof config.autoLoadFromDiskOnConnect === "boolean"
         ? config.autoLoadFromDiskOnConnect
         : DEFAULT_CONFIG.autoLoadFromDiskOnConnect,
+    reviewManifestPath: typeof config.reviewManifestPath === "string" ? config.reviewManifestPath : DEFAULT_CONFIG.reviewManifestPath,
+    reviewBankSlug: typeof config.reviewBankSlug === "string" ? config.reviewBankSlug : DEFAULT_CONFIG.reviewBankSlug,
+    reviewStateRoot: typeof config.reviewStateRoot === "string" ? config.reviewStateRoot : DEFAULT_CONFIG.reviewStateRoot,
+    reviewReviewedRoot:
+      typeof config.reviewReviewedRoot === "string" ? config.reviewReviewedRoot : DEFAULT_CONFIG.reviewReviewedRoot,
+    reviewErroneousRoot:
+      typeof config.reviewErroneousRoot === "string" ? config.reviewErroneousRoot : DEFAULT_CONFIG.reviewErroneousRoot,
+    reviewWaitingRoot:
+      typeof config.reviewWaitingRoot === "string" ? config.reviewWaitingRoot : DEFAULT_CONFIG.reviewWaitingRoot,
+    reviewErroneousAssessmentSlug:
+      typeof config.reviewErroneousAssessmentSlug === "string"
+        ? config.reviewErroneousAssessmentSlug
+        : DEFAULT_CONFIG.reviewErroneousAssessmentSlug,
+    reviewErroneousAssessmentTitle:
+      typeof config.reviewErroneousAssessmentTitle === "string"
+        ? config.reviewErroneousAssessmentTitle
+        : DEFAULT_CONFIG.reviewErroneousAssessmentTitle,
+    reviewErroneousAssessmentNumber:
+      typeof config.reviewErroneousAssessmentNumber === "string"
+        ? config.reviewErroneousAssessmentNumber
+        : DEFAULT_CONFIG.reviewErroneousAssessmentNumber,
+    reviewWaitingAssessmentSlug:
+      typeof config.reviewWaitingAssessmentSlug === "string"
+        ? config.reviewWaitingAssessmentSlug
+        : DEFAULT_CONFIG.reviewWaitingAssessmentSlug,
+    reviewWaitingAssessmentTitle:
+      typeof config.reviewWaitingAssessmentTitle === "string"
+        ? config.reviewWaitingAssessmentTitle
+        : DEFAULT_CONFIG.reviewWaitingAssessmentTitle,
+    reviewWaitingAssessmentNumber:
+      typeof config.reviewWaitingAssessmentNumber === "string"
+        ? config.reviewWaitingAssessmentNumber
+        : DEFAULT_CONFIG.reviewWaitingAssessmentNumber,
     commandMode: hasLegacyStartCommand
       ? "custom"
       : ["structured", "custom", "reconnect"].includes(config.commandMode)

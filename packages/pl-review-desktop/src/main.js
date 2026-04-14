@@ -8,6 +8,7 @@ const { PuppeteerSidecarService, createLogger } = require("pl-puppeteer-sidecar"
 const { createConfigStore } = require("./main/config-store.cjs");
 const { createCommandLineService } = require("./main/command-line-service.cjs");
 const { createPrairieLearnRuntime } = require("./main/prairielearn-runtime.cjs");
+const { createReviewService } = require("./main/review-service.cjs");
 const { createWebviewAttachService } = require("./main/webview-attach.cjs");
 
 const REMOTE_DEBUGGING_PORT = Number(process.env.PL_REVIEW_REMOTE_DEBUGGING_PORT) || 8315;
@@ -26,6 +27,10 @@ const configStore = createConfigStore({
   app,
   fs,
   path
+});
+const reviewService = createReviewService({
+  readConfig: configStore.readConfig,
+  writeConfig: configStore.writeConfig
 });
 
 const commandLineService = createCommandLineService({
@@ -84,6 +89,20 @@ async function selectPdfFile() {
     path: filePath,
     name: path.basename(filePath)
   };
+}
+
+async function selectReviewManifestFile() {
+  const result = await dialog.showOpenDialog({
+    title: "Choose Review Manifest",
+    properties: ["openFile"],
+    filters: [{ name: "JSON Files", extensions: ["json"] }]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
 }
 
 async function selectDirectory() {
@@ -195,6 +214,7 @@ function stopDevWatchers() {
 }
 
 ipcMain.handle("select-pdf", async () => selectPdfFile());
+ipcMain.handle("select-review-manifest", async () => selectReviewManifestFile());
 ipcMain.handle("select-directory", async () => selectDirectory());
 ipcMain.handle("ensure-jobs-directory", async (_event, existingPath) => ensureJobsDirectory(existingPath));
 ipcMain.handle("check-cli-dependencies", async () => commandLineService.checkCommandLineDependencies());
@@ -224,6 +244,17 @@ ipcMain.handle("attach-prairielearn-webview", async (event, guestWebContentsId) 
 ipcMain.handle("detach-prairielearn-webview", async () => prairieLearnSidecar.detach());
 ipcMain.handle("get-prairielearn-status", async () => prairieLearnSidecar.getStatus());
 ipcMain.handle("reload-prairielearn-from-disk", async () => prairieLearnSidecar.reloadFromDisk());
+ipcMain.handle("get-prairielearn-current", async () => prairieLearnSidecar.current());
+ipcMain.handle("go-to-next-prairielearn-question", async () => prairieLearnSidecar.next());
+ipcMain.handle("go-to-previous-prairielearn-question", async () => prairieLearnSidecar.prev());
+ipcMain.handle("go-to-prairielearn-url", async (_event, url) => prairieLearnSidecar.goto(url));
+ipcMain.handle("load-review-context", async () => reviewService.loadContext());
+ipcMain.handle("select-review-bank", async (_event, bankSlug) => reviewService.selectBank(bankSlug));
+ipcMain.handle("search-review-questions", async (_event, bankSlug, query) => reviewService.search(bankSlug, query));
+ipcMain.handle("update-review-tags", async (_event, bankSlug, tags) => reviewService.setTags(bankSlug, tags));
+ipcMain.handle("jump-to-review-question", async (_event, bankSlug, questionIndex) => reviewService.jump(bankSlug, questionIndex));
+ipcMain.handle("apply-review-action", async (_event, bankSlug, action) => reviewService.act(bankSlug, action));
+ipcMain.handle("undo-review-action", async (_event, bankSlug) => reviewService.undo(bankSlug));
 ipcMain.handle("open-external", async (_event, url) => {
   if (url) {
     await shell.openExternal(url);

@@ -14,6 +14,60 @@
     <div class="app-shell relative flex h-full w-full flex-col overflow-hidden px-2 py-2 md:px-3">
       <main class="workspace grow">
         <aside class="sidebar panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+          <section class="rounded-2xl border border-stone-300/70 bg-white/60 p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <h1 class="eyebrow mb-0 font-semibold text-stone-500">Review Queue</h1>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button id="review-pl-prev-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">PL Prev</button>
+                <button id="review-pl-next-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">PL Next</button>
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <label class="ui-field">
+                <span class="ui-label">Manifest</span>
+                <div class="flex gap-2">
+                  <input id="review-manifest-input" class="ui-input ui-input-sm" type="text" placeholder="questions/review/_transpile_manifest.json" />
+                  <button id="review-choose-manifest-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Choose</button>
+                  <button id="review-reload-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Load</button>
+                </div>
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">Bank</span>
+                <select id="review-bank-select" class="ui-input ui-input-sm"></select>
+              </label>
+              <div id="review-status" class="helper-text text-sm text-stone-600">Review workflow idle.</div>
+              <div id="review-summary" class="helper-text text-sm text-stone-600"></div>
+              <div class="rounded-xl border border-stone-300/70 bg-stone-50/80 p-2">
+                <div id="review-current-title" class="font-semibold text-stone-800">No bank selected.</div>
+                <div id="review-current-path" class="helper-text text-sm text-stone-600"></div>
+                <div id="review-current-tags" class="helper-text text-sm text-stone-600"></div>
+                <div id="review-current-files" class="helper-text text-sm text-stone-600 whitespace-pre-wrap"></div>
+              </div>
+              <label class="ui-field">
+                <span class="ui-label">Review Tags</span>
+                <div class="flex gap-2">
+                  <input id="review-tag-input" class="ui-input ui-input-sm" type="text" placeholder="rv:checked, needs-format" />
+                  <button id="review-save-tags-button" class="button ui-btn ui-btn-secondary ui-btn-sm" type="button">Save Tags</button>
+                </div>
+              </label>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="review-approve-button" class="button ui-btn ui-btn-primary" type="button">Approve</button>
+                <button id="review-approve-format-button" class="button ui-btn ui-btn-secondary" type="button">Approve + Format</button>
+                <button id="review-waiting-button" class="button ui-btn ui-btn-secondary" type="button">Waiting</button>
+                <button id="review-erroneous-button" class="button ui-btn ui-btn-danger" type="button">Erroneous</button>
+                <button id="review-skip-button" class="button ui-btn ui-btn-secondary" type="button">Skip</button>
+                <button id="review-undo-button" class="button ui-btn ui-btn-secondary" type="button">Undo</button>
+              </div>
+              <label class="ui-field">
+                <span class="ui-label">Jump To Remaining Question</span>
+                <input id="review-directory-search-input" class="ui-input ui-input-sm" type="text" placeholder="Filter by title, path, slug, item ident..." />
+              </label>
+              <div id="review-directory-list" class="question-list max-h-48 overflow-auto"></div>
+            </div>
+          </section>
+
           <div class="sidebar-header flex items-center justify-between gap-2">
             <div>
               <h1 class="eyebrow mb-0 font-semibold text-stone-500">Question Map</h1>

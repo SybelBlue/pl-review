@@ -1,0 +1,14 @@
+{
+  "name": "pl-question-review",
+  "version": "0.1.0",
+  "description": "Reusable review workflow logic for PrairieLearn question review.",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test ./test/*.test.js",
+    "check": "node --check ./src/index.js && npm run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

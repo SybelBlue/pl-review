@@ -60,6 +60,7 @@ export function getConfigFromForm({ elements, state, buildStructuredCommand }) {
         : "";
 
   return {
+    ...state.config,
     baseUrl: elements.baseUrlInput?.value.trim() || state.config.baseUrl || "http://127.0.0.1:3000",
     commandMode,
     autoLoadFromDiskOnConnect: elements.autoLoadFromDiskOnConnectInput?.checked !== false,

@@ -29,6 +29,7 @@
     "postcss-cli": "^11.0.1"
   },
   "dependencies": {
+    "pl-question-review": "*",
     "@tailwindcss/postcss": "^4.2.2",
     "pl-puppeteer-sidecar": "*",
     "tailwindcss": "^4.2.2"

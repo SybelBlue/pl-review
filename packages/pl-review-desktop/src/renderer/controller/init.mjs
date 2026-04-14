@@ -104,6 +104,12 @@ export async function init({
       docker: null,
       git: null,
       gh: null
+    },
+    review: {
+      context: null,
+      directoryEntries: [],
+      directoryQuery: "",
+      message: "Review workflow idle."
     }
   };
 
@@ -234,9 +240,175 @@ export async function init({
 
   function renderAll() {
     renderConfigLocal();
+    renderReviewLocal();
     renderQuestionListLocal();
     renderQuestionEditorLocal();
     renderPdfLocal();
+  }
+
+  function mergeReviewConfigFromSnapshot(snapshot) {
+    if (!snapshot?.config) {
+      return;
+    }
+
+    state.config.reviewManifestPath = snapshot.config.manifestPath || state.config.reviewManifestPath || "";
+    state.config.reviewStateRoot = snapshot.config.stateRoot || state.config.reviewStateRoot || "";
+    state.config.reviewReviewedRoot = snapshot.config.reviewedRoot || state.config.reviewReviewedRoot || "";
+    state.config.reviewErroneousRoot = snapshot.config.erroneousRoot || state.config.reviewErroneousRoot || "";
+    state.config.reviewWaitingRoot = snapshot.config.waitingRoot || state.config.reviewWaitingRoot || "";
+    state.config.reviewErroneousAssessmentSlug =
+      snapshot.config.erroneousAssessmentSlug || state.config.reviewErroneousAssessmentSlug || "";
+    state.config.reviewErroneousAssessmentTitle =
+      snapshot.config.erroneousAssessmentTitle || state.config.reviewErroneousAssessmentTitle || "";
+    state.config.reviewErroneousAssessmentNumber =
+      snapshot.config.erroneousAssessmentNumber || state.config.reviewErroneousAssessmentNumber || "";
+    state.config.reviewWaitingAssessmentSlug =
+      snapshot.config.waitingAssessmentSlug || state.config.reviewWaitingAssessmentSlug || "";
+    state.config.reviewWaitingAssessmentTitle =
+      snapshot.config.waitingAssessmentTitle || state.config.reviewWaitingAssessmentTitle || "";
+    state.config.reviewWaitingAssessmentNumber =
+      snapshot.config.waitingAssessmentNumber || state.config.reviewWaitingAssessmentNumber || "";
+    state.config.reviewBankSlug = snapshot.currentBankSlug || state.config.reviewBankSlug || "";
+  }
+
+  function applyReviewSnapshot(snapshot, message = "") {
+    state.review.context = snapshot || null;
+    state.review.directoryEntries = snapshot?.session?.directoryEntries || [];
+    if (message) {
+      state.review.message = message;
+    }
+    mergeReviewConfigFromSnapshot(snapshot);
+    renderReviewLocal();
+  }
+
+  async function jumpToReviewQuestion(questionIndex) {
+    const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
+    if (!bankSlug) {
+      return;
+    }
+    const snapshot = await windowRef.reviewApi.jumpToReviewQuestion(bankSlug, questionIndex);
+    applyReviewSnapshot(snapshot, `Jumped to question ${Number(questionIndex) + 1}.`);
+    if (state.review.directoryQuery) {
+      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+      renderReviewLocal();
+    }
+  }
+
+  function renderReviewDirectoryEntries() {
+    const container = elements.reviewDirectoryList;
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+    const entries = state.review.directoryEntries || [];
+    if (entries.length === 0) {
+      const empty = documentRef.createElement("div");
+      empty.className = "question-item-meta";
+      empty.textContent = "No remaining questions match this filter.";
+      container.append(empty);
+      return;
+    }
+
+    entries.forEach((entry) => {
+      const button = documentRef.createElement("button");
+      button.type = "button";
+      button.className = "question-item";
+      button.dataset.reviewQuestionIndex = String(entry.index);
+
+      const title = documentRef.createElement("span");
+      title.className = "question-item-title";
+      title.textContent = entry.title || entry.relpath;
+
+      const meta = documentRef.createElement("span");
+      meta.className = "question-item-meta";
+      meta.textContent = `${entry.pendingIndex}. ${entry.relpath}${entry.skipped ? " • skipped" : ""}`;
+
+      button.append(title, meta);
+      button.addEventListener("click", () => {
+        void jumpToReviewQuestion(entry.index);
+      });
+      container.append(button);
+    });
+  }
+
+  function renderReviewLocal() {
+    if (elements.reviewManifestInput) {
+      elements.reviewManifestInput.value = state.config.reviewManifestPath || "";
+    }
+
+    const snapshot = state.review.context;
+    const banks = snapshot?.banks || [];
+    if (elements.reviewBankSelect) {
+      elements.reviewBankSelect.innerHTML = "";
+      const placeholder = documentRef.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = banks.length > 0 ? "Choose a bank..." : "No banks loaded";
+      elements.reviewBankSelect.append(placeholder);
+      banks.forEach((bank) => {
+        const option = documentRef.createElement("option");
+        option.value = bank.bankSlug;
+        option.textContent = `${bank.bankTitle} (${bank.summary.done}/${bank.summary.total})`;
+        option.selected = bank.bankSlug === (snapshot?.currentBankSlug || state.config.reviewBankSlug);
+        elements.reviewBankSelect.append(option);
+      });
+    }
+
+    if (elements.reviewStatus) {
+      elements.reviewStatus.textContent = state.review.message || "Review workflow idle.";
+    }
+
+    const session = snapshot?.session || null;
+    if (elements.reviewSummary) {
+      elements.reviewSummary.textContent = session
+        ? `approved=${session.summary.approved} waiting=${session.summary.waiting} erroneous=${session.summary.erroneous} pending=${session.summary.pending}`
+        : "Load a manifest to start review.";
+    }
+
+    const item = session?.currentItem || null;
+    if (elements.reviewCurrentTitle) {
+      elements.reviewCurrentTitle.textContent = item
+        ? `${item.title || "(no title)"}`
+        : session?.finished
+          ? "All questions reviewed."
+          : "No current review item.";
+    }
+    if (elements.reviewCurrentPath) {
+      elements.reviewCurrentPath.textContent = item
+        ? `${session.currentIndex + 1}/${session.totalQuestions} • ${item.relpath}`
+        : "";
+    }
+    if (elements.reviewCurrentTags) {
+      elements.reviewCurrentTags.textContent = item?.reviewTags?.length > 0 ? `Review tags: ${item.reviewTags.join(", ")}` : "Review tags: (none)";
+    }
+    if (elements.reviewCurrentFiles) {
+      elements.reviewCurrentFiles.textContent = item?.reviewFiles?.length > 0 ? item.reviewFiles.join("\n") : "";
+    }
+    if (elements.reviewTagInput) {
+      elements.reviewTagInput.value = item?.reviewTags?.join(", ") || "";
+      elements.reviewTagInput.disabled = !item;
+    }
+    if (elements.reviewDirectorySearchInput) {
+      elements.reviewDirectorySearchInput.value = state.review.directoryQuery || "";
+    }
+
+    [
+      elements.reviewSaveTagsButton,
+      elements.reviewApproveButton,
+      elements.reviewApproveFormatButton,
+      elements.reviewWaitingButton,
+      elements.reviewErroneousButton,
+      elements.reviewSkipButton
+    ].forEach((button) => {
+      if (button) {
+        button.disabled = !item;
+      }
+    });
+    if (elements.reviewUndoButton) {
+      elements.reviewUndoButton.disabled = !session?.canUndo;
+    }
+
+    renderReviewDirectoryEntries();
   }
 
   function renderDockerLog() {
@@ -949,6 +1121,114 @@ export async function init({
     saveSession,
     updateCurrentQuestion,
     renderCourseDirectoryRows,
+    loadReviewContext: async () => {
+      try {
+        const snapshot = await windowRef.reviewApi.loadReviewContext();
+        applyReviewSnapshot(snapshot, "Review workflow loaded.");
+      } catch (error) {
+        state.review.message = error?.message || "Could not load review workflow.";
+        renderReviewLocal();
+      }
+    },
+    selectReviewManifest: async () => {
+      const selected = await windowRef.reviewApi.selectReviewManifest();
+      if (!selected) {
+        return;
+      }
+      state.config = await windowRef.reviewApi.saveConfig({
+        ...state.config,
+        reviewManifestPath: selected
+      });
+      const snapshot = await windowRef.reviewApi.loadReviewContext();
+      applyReviewSnapshot(snapshot, "Loaded review manifest.");
+    },
+    reloadReviewContext: async () => {
+      state.config = await windowRef.reviewApi.saveConfig({
+        ...state.config,
+        reviewManifestPath: elements.reviewManifestInput?.value.trim() || state.config.reviewManifestPath || "",
+        reviewBankSlug: elements.reviewBankSelect?.value || state.config.reviewBankSlug || ""
+      });
+      const snapshot = await windowRef.reviewApi.loadReviewContext();
+      applyReviewSnapshot(snapshot, "Reloaded review context.");
+    },
+    selectReviewBank: async (bankSlug) => {
+      state.config = await windowRef.reviewApi.saveConfig({
+        ...state.config,
+        reviewManifestPath: elements.reviewManifestInput?.value.trim() || state.config.reviewManifestPath || "",
+        reviewBankSlug: bankSlug || ""
+      });
+      const snapshot = bankSlug ? await windowRef.reviewApi.selectReviewBank(bankSlug) : await windowRef.reviewApi.loadReviewContext();
+      applyReviewSnapshot(snapshot, bankSlug ? `Loaded bank ${bankSlug}.` : "Review bank cleared.");
+    },
+    searchReviewQuestions: async (query) => {
+      state.review.directoryQuery = query;
+      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
+      if (!bankSlug) {
+        state.review.directoryEntries = [];
+        renderReviewLocal();
+        return;
+      }
+      state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, query);
+      renderReviewLocal();
+    },
+    saveReviewTags: async () => {
+      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
+      if (!bankSlug) {
+        return;
+      }
+      const tags = String(elements.reviewTagInput?.value || "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const snapshot = await windowRef.reviewApi.updateReviewTags(bankSlug, tags);
+      applyReviewSnapshot(snapshot, "Updated review tags.");
+      if (state.review.directoryQuery) {
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        renderReviewLocal();
+      }
+    },
+    applyReviewAction: async (action) => {
+      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
+      if (!bankSlug) {
+        return;
+      }
+      const result = await windowRef.reviewApi.applyReviewAction(bankSlug, action);
+      applyReviewSnapshot(result?.snapshot, result?.message || `Applied ${action}.`);
+      if (state.review.directoryQuery) {
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        renderReviewLocal();
+      }
+    },
+    undoReviewAction: async () => {
+      const bankSlug = elements.reviewBankSelect?.value || state.config.reviewBankSlug || "";
+      if (!bankSlug) {
+        return;
+      }
+      const result = await windowRef.reviewApi.undoReviewAction(bankSlug);
+      applyReviewSnapshot(result?.snapshot, result?.message || "Undid review action.");
+      if (state.review.directoryQuery) {
+        state.review.directoryEntries = await windowRef.reviewApi.searchReviewQuestions(bankSlug, state.review.directoryQuery);
+        renderReviewLocal();
+      }
+    },
+    jumpToReviewQuestion,
+    navigatePrairieLearnReview: async (direction) => {
+      await ensurePrairieLearnWebviewAttached();
+      if (direction === "previous") {
+        await windowRef.reviewApi.goToPreviousPrairieLearnQuestion();
+      } else {
+        await windowRef.reviewApi.goToNextPrairieLearnQuestion();
+      }
+      const current = await windowRef.reviewApi.getPrairieLearnCurrent();
+      if (current?.url) {
+        setCurrentUrlLocal(current.url);
+      }
+      if (current?.title) {
+        state.currentPrairieLearnTitle = current.title;
+      }
+      state.review.message = `Moved PrairieLearn ${direction}.`;
+      renderReviewLocal();
+    },
     incrementPdfDropDragDepth: () => {
       pdfDropDragDepth += 1;
     },
@@ -981,6 +1261,7 @@ export async function init({
   state.config = await ensureStructuredJobsDirectory(state.config);
   renderDockerLog();
   renderAll();
+  await app.loadReviewContext();
   renderDependencyChecklist({ elements, state });
   setCurrentUrlLocal(state.currentPrairieLearnUrl);
   setPrairieLearnStatusLocal(plStatusText.waitingForConfiguration, "idle");

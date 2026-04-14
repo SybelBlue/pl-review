@@ -108,6 +108,46 @@ export function bindWebviewEvents(app) {
 export function bindEvents(app) {
   const { elements, state, windowRef, documentRef } = app;
 
+  if (elements.reviewChooseManifestButton) {
+    elements.reviewChooseManifestButton.addEventListener("click", app.selectReviewManifest);
+  }
+  if (elements.reviewReloadButton) {
+    elements.reviewReloadButton.addEventListener("click", app.reloadReviewContext);
+  }
+  if (elements.reviewBankSelect) {
+    elements.reviewBankSelect.addEventListener("change", (event) => app.selectReviewBank(event.target.value));
+  }
+  if (elements.reviewDirectorySearchInput) {
+    elements.reviewDirectorySearchInput.addEventListener("input", (event) => app.searchReviewQuestions(event.target.value));
+  }
+  if (elements.reviewSaveTagsButton) {
+    elements.reviewSaveTagsButton.addEventListener("click", app.saveReviewTags);
+  }
+  if (elements.reviewApproveButton) {
+    elements.reviewApproveButton.addEventListener("click", () => app.applyReviewAction("approve"));
+  }
+  if (elements.reviewApproveFormatButton) {
+    elements.reviewApproveFormatButton.addEventListener("click", () => app.applyReviewAction("approve-format"));
+  }
+  if (elements.reviewWaitingButton) {
+    elements.reviewWaitingButton.addEventListener("click", () => app.applyReviewAction("waiting"));
+  }
+  if (elements.reviewErroneousButton) {
+    elements.reviewErroneousButton.addEventListener("click", () => app.applyReviewAction("erroneous"));
+  }
+  if (elements.reviewSkipButton) {
+    elements.reviewSkipButton.addEventListener("click", () => app.applyReviewAction("skip"));
+  }
+  if (elements.reviewUndoButton) {
+    elements.reviewUndoButton.addEventListener("click", app.undoReviewAction);
+  }
+  if (elements.reviewPlPrevButton) {
+    elements.reviewPlPrevButton.addEventListener("click", () => app.navigatePrairieLearnReview("previous"));
+  }
+  if (elements.reviewPlNextButton) {
+    elements.reviewPlNextButton.addEventListener("click", () => app.navigatePrairieLearnReview("next"));
+  }
+
   elements.questionForm.addEventListener("submit", (event) => {
     event.preventDefault();
   });
