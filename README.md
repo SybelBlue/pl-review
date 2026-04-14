@@ -11,7 +11,12 @@ PrairieLearn Review Desktop is a local Electron app for reviewing a PDF assessme
 
 ## Workspace Layout
 
-This repo now uses npm workspaces. The Electron app lives at `packages/pl-review-desktop`, while the repo root acts as the workspace manager for this package and any future sibling packages.
+This repo now uses npm workspaces. Current packages:
+
+- `packages/pl-review-desktop`: the Electron review app
+- `packages/pl-puppeteer-sidecar`: the terminal-first Puppeteer sidecar
+
+The repo root acts as the workspace manager for these packages and any future siblings.
 
 ## Requirements
 
@@ -33,6 +38,20 @@ npm start
 ```
 
 This root command forwards to the `pl-review-desktop` workspace package.
+
+To run the Puppeteer sidecar from the workspace root:
+
+```bash
+npm run sidecar -- --url http://localhost:3000
+```
+
+Arguments after the second `--` are forwarded to the sidecar package.
+
+To syntax-check the sidecar package:
+
+```bash
+npm run sidecar:check
+```
 
 ## Dev Mode
 

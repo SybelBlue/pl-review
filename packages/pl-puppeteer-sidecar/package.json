@@ -1,0 +1,21 @@
+{
+  "name": "pl-puppeteer-sidecar",
+  "version": "0.1.0",
+  "description": "Terminal-first Puppeteer sidecar for PrairieLearn local development",
+  "private": true,
+  "main": "src/index.js",
+  "bin": {
+    "pl-sidecar": "./bin/pl-sidecar.js"
+  },
+  "scripts": {
+    "start": "node ./bin/pl-sidecar.js",
+    "check": "node --check ./src/index.js && node --check ./src/browser/session.js && node --check ./src/prairielearn/page-actions.js && node --check ./src/commands/command-dispatcher.js && node --check ./src/commands/command-loop.js && node --check ./src/lib/args.js && node --check ./src/lib/logger.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0"
+  }
+}
+
