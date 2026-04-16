@@ -4,7 +4,11 @@
   "description": "Reusable review workflow logic for PrairieLearn question review.",
   "private": true,
   "main": "src/index.js",
+  "bin": {
+    "pl-question-review": "./bin/pl-question-review.js"
+  },
   "scripts": {
+    "cli": "node ./bin/pl-question-review.js",
     "test": "node --test ./test/*.test.js",
     "check": "node --check ./src/index.js && node --check ./src/manifest-adapter.js && npm run test"
   },

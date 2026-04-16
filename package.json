@@ -8,6 +8,7 @@
     "css:build": "npm run css:build --workspace pl-review-desktop",
     "start": "npm run start --workspace pl-review-desktop",
     "dev": "npm run dev --workspace pl-review-desktop",
+    "review": "npm run cli --workspace pl-question-review --",
     "review:test": "npm run test --workspace pl-question-review && npm run test --workspace pl-review-desktop",
     "sidecar": "npm run start --workspace pl-puppeteer-sidecar --",
     "sidecar:check": "npm run check --workspace pl-puppeteer-sidecar",

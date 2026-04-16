@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { execFile } = require('node:child_process');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { promisify } = require('node:util');
 const {
   createReviewManager,
   normalizeReviewTag,
@@ -12,6 +14,8 @@ const {
   loadManifestReviewSource,
   resolveManifestBankItems,
 } = require('../src/manifest-adapter.js');
+
+const execFileAsync = promisify(execFile);
 
 async function makeFixture() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pl-question-review-'));
@@ -208,4 +212,43 @@ test('manifest adapter loads banks and resolves legacy items', async () => {
   assert.equal(bank.reviewKey, 'manifest:bank-a');
   assert.equal(bank.items[0].relpath, 'bank-a/q1');
   assert.equal(bank.items[0].questionId, 'review/bank-a/q1');
+});
+
+test('cli wrapper is available from the package bin and prints state', async () => {
+  const fixture = await makeFixture();
+  const cliPath = path.resolve(__dirname, '../bin/pl-question-review.js');
+
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliPath, 'state', '--review-key', 'sidecar:sequence-1', '--pretty'],
+    {
+      cwd: fixture.root,
+      env: process.env,
+      maxBuffer: 1024 * 1024,
+    }
+  );
+
+  const parsed = JSON.parse(stdout);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.reviewKey, 'sidecar:sequence-1');
+  assert.equal(parsed.state.reviewKey, 'sidecar:sequence-1');
+});
+
+test('cli help renders command-specific guidance', async () => {
+  const fixture = await makeFixture();
+  const cliPath = path.resolve(__dirname, '../bin/pl-question-review.js');
+
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliPath, 'help', 'apply'],
+    {
+      cwd: fixture.root,
+      env: process.env,
+      maxBuffer: 1024 * 1024,
+    }
+  );
+
+  assert.match(stdout, /Apply a review decision to a question item\./);
+  assert.match(stdout, /Supported decisions are `approve`, `approve-format`, `waiting`, `erroneous`, and `skip`/);
+  assert.match(stdout, /pl-question-review apply --review-key sidecar:sequence-1 --decision approve --item-file \.\/item\.json/);
 });
