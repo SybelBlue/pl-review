@@ -168,6 +168,7 @@ function formatStatus(status) {
 
   if (status.currentQuestionQid) {
     lines.push(`Current QID: ${status.currentQuestionQid}`);
+    lines.push(`Jump to: questions/${status.currentQuestionQid}/question.html`);
   }
 
   if (status.indexedQuestionSource) {
