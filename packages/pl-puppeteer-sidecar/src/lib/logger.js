@@ -1,4 +1,4 @@
-function createLogger({ verbose = true } = {}) {
+function createLogger({ verbose = true, write: terminalWrite = null } = {}) {
   const write = (level, message, error) => {
     if (level === 'DEBUG' && !verbose) {
       return;
@@ -8,6 +8,12 @@ function createLogger({ verbose = true } = {}) {
     const line = `[${timestamp}] [${level}] ${message}`;
 
     if (level === 'ERROR') {
+      if (terminalWrite) {
+        const errorLine = error ? (error.stack || error.message || String(error)) : null;
+        terminalWrite(errorLine ? `${line}\n${errorLine}` : line);
+        return;
+      }
+
       console.error(line);
       if (error) {
         console.error(error.stack || error.message || String(error));
@@ -16,7 +22,17 @@ function createLogger({ verbose = true } = {}) {
     }
 
     if (level === 'WARN') {
+      if (terminalWrite) {
+        terminalWrite(line);
+        return;
+      }
+
       console.warn(line);
+      return;
+    }
+
+    if (terminalWrite) {
+      terminalWrite(line);
       return;
     }
 
@@ -42,4 +58,3 @@ function createLogger({ verbose = true } = {}) {
 module.exports = {
   createLogger,
 };
-

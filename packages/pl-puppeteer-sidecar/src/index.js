@@ -6,6 +6,7 @@ const {
 } = require('./commands/command-dispatcher');
 const { parseArgs, renderUsage } = require('./lib/args');
 const { createLogger } = require('./lib/logger');
+const { createTerminalWriter } = require('./lib/terminal');
 const { PuppeteerSidecarService } = require('./service');
 
 async function main(argv = process.argv.slice(2)) {
@@ -16,7 +17,8 @@ async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const logger = createLogger({ verbose: options.verbose });
+  const terminal = createTerminalWriter();
+  const logger = createLogger({ verbose: options.verbose, write: terminal.write });
   const userDataDir = options.userDataDir || resolve(process.cwd(), '.pl-puppeteer-profile');
   const service = new PuppeteerSidecarService({ logger });
 
@@ -52,11 +54,11 @@ async function main(argv = process.argv.slice(2)) {
       }
 
       if (event.result.action === 'index-questions') {
-        process.stdout.write(`${event.heading}:\n${formatQuestionsIndexedSummary(event.result.count)}\n`);
+        terminal.write(`${event.heading}:\n${formatQuestionsIndexedSummary(event.result.count)}`);
         return;
       }
 
-      process.stdout.write(`${event.heading}:\n${JSON.stringify(event.result, null, 2)}\n`);
+      terminal.write(`${event.heading}:\n${JSON.stringify(event.result, null, 2)}`);
     });
 
     await service.start({
@@ -77,6 +79,7 @@ async function main(argv = process.argv.slice(2)) {
       dispatcher,
       logger,
       showPrompt: Boolean(process.stdin.isTTY),
+      terminal,
     });
   } finally {
     await service.close();

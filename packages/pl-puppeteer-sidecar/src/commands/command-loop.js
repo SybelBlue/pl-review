@@ -1,11 +1,15 @@
 const readline = require('node:readline');
 
-async function runCommandLoop({ dispatcher, logger, showPrompt = true }) {
+async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal = null }) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: showPrompt,
   });
+
+  if (terminal) {
+    terminal.attachReadline(rl, { showPrompt });
+  }
 
   let closed = false;
 
@@ -31,9 +35,14 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true }) {
     rl.on('line', (line) => {
       queue = queue.then(async () => {
         const result = await dispatcher.dispatch(line);
+        const wroteOutput = Boolean(result.output);
 
         if (result.output) {
-          process.stdout.write(`${result.output}\n`);
+          if (terminal) {
+            terminal.write(result.output);
+          } else {
+            process.stdout.write(`${result.output}\n`);
+          }
         }
 
         if (!result.continueRunning) {
@@ -41,14 +50,23 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true }) {
           return;
         }
 
+        if (terminal && wroteOutput) {
+          return;
+        }
+
         writePrompt();
       }).catch((error) => {
         logger.error('Unexpected command-loop failure', error);
-        writePrompt();
+        if (!terminal) {
+          writePrompt();
+        }
       });
     });
 
     rl.on('close', () => {
+      if (terminal) {
+        terminal.detachReadline();
+      }
       resolve();
     });
 
@@ -59,4 +77,3 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true }) {
 module.exports = {
   runCommandLoop,
 };
-
