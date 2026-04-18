@@ -7,7 +7,7 @@ function parseArgs(argv) {
     readySelectors: [],
     url: process.env.PL_START_URL || null,
     userDataDir: process.env.PL_USER_DATA_DIR || null,
-    verbose: normalizeBoolean(process.env.PL_VERBOSE, true),
+    verbose: normalizeBoolean(process.env.PL_VERBOSE, false),
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -30,6 +30,11 @@ function parseArgs(argv) {
 
     if (token === '--quiet') {
       options.verbose = false;
+      continue;
+    }
+
+    if (token === '--verbose') {
+      options.verbose = true;
       continue;
     }
 
@@ -133,6 +138,7 @@ function renderUsage() {
     '  --user-data-dir <path>           Browser profile directory for persistent login/session state',
     '  --executable-path <path>         Chrome/Chromium executable path override',
     '  --ready-selector <selector>      Extra CSS selector to wait for after navigation; may be repeated',
+    '  --verbose                        Enable debug logging',
     '  --quiet                          Reduce log noise',
     '  --help                           Show this help',
     '',
@@ -145,4 +151,3 @@ module.exports = {
   parseArgs,
   renderUsage,
 };
-

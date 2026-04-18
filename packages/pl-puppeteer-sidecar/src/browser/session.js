@@ -19,6 +19,7 @@ class BrowserSession extends EventEmitter {
     this.page = null;
     this.connectionMode = null;
     this.autoIndexPromise = null;
+    this.autoIndexSuppressionCount = 0;
     this.lastAutoIndexedUrl = null;
     this.lastAutoIndexedMode = null;
     this.latestQuestionIndex = null;
@@ -82,6 +83,7 @@ class BrowserSession extends EventEmitter {
     this.page = page;
     this.connectionMode = connectionMode;
     this.autoIndexPromise = null;
+    this.autoIndexSuppressionCount = 0;
     this.lastAutoIndexedUrl = null;
     this.lastAutoIndexedMode = null;
     this.latestQuestionIndex = null;
@@ -213,23 +215,31 @@ class BrowserSession extends EventEmitter {
     this.ensurePage();
     this.logger.info(`Indexing PrairieLearn questions for course ${courseNumber}`);
 
-    const result = await indexQuestionsForCourse(this.page, Number(courseNumber), {
-      logger: this.logger,
-      readySelectors: this.options.readySelectors,
-    });
+    const result = await this.withAutoIndexSuppressed(() =>
+      indexQuestionsForCourse(this.page, Number(courseNumber), {
+        logger: this.logger,
+        readySelectors: this.options.readySelectors,
+      })
+    );
 
     this.registerQuestionIndex(result);
+    this.lastAutoIndexedUrl = result.url || this.page.url();
+    this.lastAutoIndexedMode = 'course';
     return result;
   }
 
   async indexAssessmentQuestions() {
     this.ensurePage();
-    const result = await indexQuestionsForCurrentAssessment(this.page, {
-      logger: this.logger,
-      readySelectors: this.options.readySelectors,
-    });
+    const result = await this.withAutoIndexSuppressed(() =>
+      indexQuestionsForCurrentAssessment(this.page, {
+        logger: this.logger,
+        readySelectors: this.options.readySelectors,
+      })
+    );
 
     this.registerQuestionIndex(result);
+    this.lastAutoIndexedUrl = result.url || this.page.url();
+    this.lastAutoIndexedMode = 'assessment';
     return result;
   }
 
@@ -273,6 +283,10 @@ class BrowserSession extends EventEmitter {
   async maybeAutoIndexAssessmentQuestions() {
     this.ensurePage();
 
+    if (this.autoIndexSuppressionCount > 0) {
+      return null;
+    }
+
     const match = getAssessmentQuestionsOverviewMatch(this.page.url());
     if (!match) {
       return null;
@@ -294,12 +308,16 @@ class BrowserSession extends EventEmitter {
     this.registerQuestionIndex(result);
     this.lastAutoIndexedUrl = this.page.url();
     this.lastAutoIndexedMode = 'assessment';
-    this.logger.info(`Indexed ${result.count} assessment questions`);
+    this.logger.debug(`Indexed ${result.count} assessment questions`);
     return result;
   }
 
   async maybeAutoIndexCourseQuestions() {
     this.ensurePage();
+
+    if (this.autoIndexSuppressionCount > 0) {
+      return null;
+    }
 
     const match = getCourseQuestionsIndexMatch(this.page.url());
     if (!match) {
@@ -320,12 +338,16 @@ class BrowserSession extends EventEmitter {
     this.registerQuestionIndex(result);
     this.lastAutoIndexedUrl = this.page.url();
     this.lastAutoIndexedMode = 'course';
-    this.logger.info(`Indexed ${result.count} course questions`);
+    this.logger.debug(`Indexed ${result.count} course questions`);
     return result;
   }
 
   async handleMainFrameNavigation(url) {
     if (!this.page || this.page.url() !== url) {
+      return;
+    }
+
+    if (this.autoIndexSuppressionCount > 0) {
       return;
     }
 
@@ -531,6 +553,16 @@ class BrowserSession extends EventEmitter {
   ensurePage() {
     if (!this.page) {
       throw new Error('Browser page is not ready');
+    }
+  }
+
+  async withAutoIndexSuppressed(task) {
+    this.autoIndexSuppressionCount += 1;
+
+    try {
+      return await task();
+    } finally {
+      this.autoIndexSuppressionCount -= 1;
     }
   }
 

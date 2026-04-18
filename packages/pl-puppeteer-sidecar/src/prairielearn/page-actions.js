@@ -712,7 +712,7 @@ async function extractQuestionsIndexFromEmbeddedData(page, { logger, courseNumbe
     }, courseNumber);
 
     if (Array.isArray(questions) && questions.length > 0) {
-      logger.info('Indexed course questions from embedded table data');
+      logger.debug('Indexed course questions from embedded table data');
       return questions;
     }
   } catch (error) {

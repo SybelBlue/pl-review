@@ -4,8 +4,7 @@ function createLogger({ verbose = true, write: terminalWrite = null } = {}) {
       return;
     }
 
-    const timestamp = new Date().toISOString();
-    const line = `[${timestamp}] [${level}] ${message}`;
+    const line = `[${level}] ${message}`;
 
     if (level === 'ERROR') {
       if (terminalWrite) {

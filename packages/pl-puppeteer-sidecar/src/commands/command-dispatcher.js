@@ -100,7 +100,7 @@ class CommandDispatcher {
           const courseNumber = rest ? Number(rest) : 1;
 
           if (!Number.isInteger(courseNumber) || courseNumber < 1) {
-            throw new Error('Usage: index-questions [courseNumber=1]');
+            throw new Error('Usage: index-questions [courseNumber]');
           }
 
           const result = await this.session.indexQuestions(courseNumber);

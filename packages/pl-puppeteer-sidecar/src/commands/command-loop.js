@@ -1,10 +1,28 @@
 const readline = require('node:readline');
 
+const COMMANDS = [
+  'help',
+  'status',
+  'current',
+  'next',
+  'prev',
+  'reload',
+  'hard-reload',
+  'reload-disk',
+  'index-questions',
+  'index-assessment',
+  'goto',
+  'sync-refresh',
+  'quit',
+  'exit',
+];
+
 async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal = null }) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: showPrompt,
+    completer: createCommandCompleter(),
   });
 
   if (terminal) {
@@ -25,7 +43,7 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal 
   return new Promise((resolve) => {
     const writePrompt = () => {
       if (showPrompt && !closed) {
-        rl.setPrompt('pl-sidecar> ');
+        rl.setPrompt(getPrompt());
         rl.prompt();
       }
     };
@@ -75,5 +93,26 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal 
 }
 
 module.exports = {
+  createCommandCompleter,
+  getPrompt,
   runCommandLoop,
 };
+
+function createCommandCompleter(commands = COMMANDS) {
+  return (line) => {
+    const trimmed = String(line || '').trimStart();
+
+    if (!trimmed || trimmed.includes(' ')) {
+      return [[], line];
+    }
+
+    const lower = trimmed.toLowerCase();
+    const matches = commands.filter((command) => command.startsWith(lower));
+
+    return [matches, line];
+  };
+}
+
+function getPrompt() {
+  return '\x1b[34mpl-sidecar\x1b[0m> ';
+}
