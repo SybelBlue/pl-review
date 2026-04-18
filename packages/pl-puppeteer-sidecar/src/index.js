@@ -77,7 +77,7 @@ async function main(argv = process.argv.slice(2)) {
     const dispatcher = new CommandDispatcher({ logger, session: service });
 
     logger.info('Sidecar ready');
-    logger.info('Commands: help, status, current, next, prev, reload, hard-reload, reload-disk, index-questions [courseNumber], index-assessment, goto <url>, sync-refresh, quit');
+    logger.info('Enter "help" for a full list of commands, or "quit" to quit.');
 
     await runCommandLoop({
       dispatcher,

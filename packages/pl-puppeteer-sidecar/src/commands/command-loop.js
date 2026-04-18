@@ -51,13 +51,22 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal 
     let queue = Promise.resolve();
 
     rl.on('line', (line) => {
+      if (terminal) {
+        terminal.writeRaw('\x1b[0m');
+      } else if (showPrompt && process.stdout.isTTY) {
+        process.stdout.write('\x1b[0m');
+      }
+
       queue = queue.then(async () => {
         const result = await dispatcher.dispatch(line);
         const wroteOutput = Boolean(result.output);
 
         if (result.output) {
           if (terminal) {
-            terminal.write(result.output, { color: 'green' });
+            terminal.write(` - | ${result.output}`, {
+              color: 'green',
+              redrawPrompt: result.continueRunning,
+            });
           } else {
             process.stdout.write(`${result.output}\n`);
           }
@@ -114,5 +123,5 @@ function createCommandCompleter(commands = COMMANDS) {
 }
 
 function getPrompt() {
-  return '\x1b[34mpl-sidecar\x1b[0m> ';
+  return '\x1b[34m > | ';
 }

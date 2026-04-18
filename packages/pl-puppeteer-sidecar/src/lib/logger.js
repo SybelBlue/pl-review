@@ -4,12 +4,18 @@ function createLogger({ verbose = true, write: terminalWrite = null } = {}) {
       return;
     }
 
-    const line = `[${level}] ${message}`;
+    const line = ` ${level[0]} | ${message}`;
+    const colorByLevel = {
+      DEBUG: 'white',
+      INFO: 'grey',
+      WARN: 'yellow',
+      ERROR: 'red',
+    };
 
     if (level === 'ERROR') {
       if (terminalWrite) {
         const errorLine = error ? (error.stack || error.message || String(error)) : null;
-        terminalWrite(errorLine ? `${line}\n${errorLine}` : line);
+        terminalWrite(errorLine ? `${line}\n${errorLine}` : line, { color: colorByLevel[level] });
         return;
       }
 
@@ -22,7 +28,7 @@ function createLogger({ verbose = true, write: terminalWrite = null } = {}) {
 
     if (level === 'WARN') {
       if (terminalWrite) {
-        terminalWrite(line);
+        terminalWrite(line, { color: colorByLevel[level] });
         return;
       }
 
@@ -31,7 +37,7 @@ function createLogger({ verbose = true, write: terminalWrite = null } = {}) {
     }
 
     if (terminalWrite) {
-      terminalWrite(line);
+      terminalWrite(line, { color: colorByLevel[level] });
       return;
     }
 

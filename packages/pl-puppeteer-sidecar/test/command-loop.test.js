@@ -6,7 +6,7 @@ const {
 } = require('../src/commands/command-loop');
 
 test('prompt is blue', () => {
-  assert.equal(getPrompt(), '\x1b[34mpl-sidecar\x1b[0m> ');
+  assert.equal(getPrompt(), '\x1b[34m > | ');
 });
 
 test('command completer suggests matching commands', () => {
