@@ -1,6 +1,9 @@
 const { resolve } = require('node:path');
 const { runCommandLoop } = require('./commands/command-loop');
-const { CommandDispatcher } = require('./commands/command-dispatcher');
+const {
+  CommandDispatcher,
+  formatQuestionsIndexedSummary,
+} = require('./commands/command-dispatcher');
 const { parseArgs, renderUsage } = require('./lib/args');
 const { createLogger } = require('./lib/logger');
 const { PuppeteerSidecarService } = require('./service');
@@ -45,6 +48,11 @@ async function main(argv = process.argv.slice(2)) {
   try {
     service.on('event', (event) => {
       if (event?.type !== 'question-indexed' || !event.result) {
+        return;
+      }
+
+      if (event.result.action === 'index-questions') {
+        process.stdout.write(`${event.heading}:\n${formatQuestionsIndexedSummary(event.result.count)}\n`);
         return;
       }
 

@@ -244,6 +244,33 @@ async function indexQuestionsForCourse(page, courseNumber, { logger, readySelect
 
   await waitForQuestionsIndexTable(page, { logger, timeoutMs: 20000 });
 
+  const embeddedQuestions = await extractQuestionsIndexFromEmbeddedData(page, {
+    logger,
+    courseNumber,
+  });
+
+  if (embeddedQuestions) {
+    return {
+      action: 'index-questions',
+      courseNumber,
+      count: embeddedQuestions.length,
+      questions: embeddedQuestions,
+      selectorStrategy: 'questions-table-data',
+      title: await safeGetTitle(page),
+      url: page.url(),
+    };
+  }
+
+  logger.debug('Embedded questions table data was unavailable; falling back to the rendered table');
+
+  await selectQuestionsIndexPageSize(page, {
+    logger,
+    pageSizeLabel: 'All',
+    timeoutMs: 20000,
+  });
+
+  await waitForQuestionsIndexTable(page, { logger, timeoutMs: 20000 });
+
   const questions = await page.evaluate((descriptor, fieldHints) => {
     return extractIndexedTableRows(descriptor, fieldHints);
 
@@ -611,6 +638,196 @@ async function waitForQuestionsIndexTable(page, { logger, timeoutMs = 20000 } = 
   );
 }
 
+async function extractQuestionsIndexFromEmbeddedData(page, { logger, courseNumber } = {}) {
+  try {
+    const questions = await page.evaluate((targetCourseNumber) => {
+      const table = document.querySelector('#questionsTable');
+      if (!table) {
+        return null;
+      }
+
+      const rawData = table.getAttribute('data-data');
+      if (!rawData) {
+        return null;
+      }
+
+      let records;
+      try {
+        records = JSON.parse(rawData);
+      } catch (error) {
+        return null;
+      }
+
+      if (!Array.isArray(records)) {
+        return null;
+      }
+
+      const urlPrefix = getUrlPrefix();
+      return records
+        .map((record) => {
+          const questionId = String(record?.id || '').trim();
+          const qid = normalizeText(record?.qid);
+          if (!questionId || !qid) {
+            return null;
+          }
+
+          return {
+            qid,
+            title: normalizeText(record?.title),
+            topic: normalizeText(record?.topic?.name || record?.topic || ''),
+            tags: Array.isArray(record?.tags)
+              ? record.tags.map((tag) => normalizeText(tag?.name || tag)).filter(Boolean)
+              : [],
+            link: `${urlPrefix}/question/${encodeURIComponent(questionId)}/preview`,
+            raw: record,
+          };
+        })
+        .filter(Boolean);
+
+      function getUrlPrefix() {
+        const script = document.querySelector('#questions-table-data');
+        if (script) {
+          const text = script.textContent || script.innerText || '';
+          const trimmed = text.trim();
+          if (trimmed) {
+            try {
+              const decoded = atob(trimmed);
+              const parsed = JSON.parse(decoded);
+              if (parsed && typeof parsed.urlPrefix === 'string' && parsed.urlPrefix.trim()) {
+                return new URL(parsed.urlPrefix, window.location.origin).toString().replace(/\/+$/g, '');
+              }
+            } catch (error) {
+              // Fall through to deriving the prefix from the current page URL.
+            }
+          }
+        }
+
+        const path = window.location.pathname.replace(/\/course_admin\/questions\/?$/, '');
+        return `${window.location.origin}${path}`.replace(/\/+$/g, '');
+      }
+
+      function normalizeText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+      }
+    }, courseNumber);
+
+    if (Array.isArray(questions) && questions.length > 0) {
+      logger.info('Indexed course questions from embedded table data');
+      return questions;
+    }
+  } catch (error) {
+    logger.debug(`Embedded questions table data parse failed: ${error.message}`);
+  }
+
+  return null;
+}
+
+async function selectQuestionsIndexPageSize(page, { logger, pageSizeLabel = 'All', timeoutMs = 20000 } = {}) {
+  const selection = await page.evaluate((targetLabel) => {
+    const pageList = document.querySelector('.page-list');
+    if (!pageList) {
+      return {
+        found: false,
+        reason: 'missing-page-list',
+      };
+    }
+
+    const currentLabel = normalizeText(pageList.querySelector('.page-size')?.textContent || '');
+    const targetItem = Array.from(pageList.querySelectorAll('.dropdown-item')).find((item) => {
+      return normalizeText(item.textContent || '') === normalizeText(targetLabel);
+    }) || null;
+
+    if (!targetItem) {
+      return {
+        found: false,
+        reason: 'missing-page-size-option',
+        currentLabel,
+      };
+    }
+
+    if (currentLabel === normalizeText(targetLabel)) {
+      return {
+        found: true,
+        alreadySelected: true,
+        currentLabel,
+      };
+    }
+
+    const toggle = pageList.querySelector('.dropdown-toggle');
+    if (toggle && typeof toggle.click === 'function') {
+      toggle.click();
+    }
+
+    targetItem.click();
+
+    return {
+      found: true,
+      alreadySelected: false,
+      currentLabel,
+    };
+
+    function normalizeText(value) {
+      return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+  }, pageSizeLabel);
+
+  if (!selection.found) {
+    if (selection.reason === 'missing-page-list') {
+      logger.debug('Questions index page-size controls were not found; continuing without changing the page size');
+      return {
+        action: 'index-questions',
+        selectorStrategy: 'questions-admin-table',
+      };
+    }
+
+    throw new Error(`Could not find the "${pageSizeLabel}" page-size option on the questions index page.`);
+  }
+
+  if (selection.alreadySelected) {
+    logger.debug(`Questions index page size already set to "${pageSizeLabel}"`);
+  } else {
+    logger.info(`Selecting "${pageSizeLabel}" rows per page on the questions index`);
+  }
+
+  await page.waitForFunction(
+    (config) => {
+      const pageList = document.querySelector('.page-list');
+      if (!pageList) {
+        return false;
+      }
+
+      const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+      const currentLabel = normalizeText(pageList.querySelector('.page-size')?.textContent || '');
+      if (currentLabel !== config.targetLabel) {
+        window.__plQuestionsIndexPageSizeState = null;
+        return false;
+      }
+
+      const rows = Array.from(document.querySelectorAll(config.rowSelector));
+      const state = window.__plQuestionsIndexPageSizeState || {
+        rowCount: rows.length,
+        lastChangeAt: performance.now(),
+      };
+
+      if (state.rowCount !== rows.length) {
+        state.rowCount = rows.length;
+        state.lastChangeAt = performance.now();
+        window.__plQuestionsIndexPageSizeState = state;
+        return false;
+      }
+
+      window.__plQuestionsIndexPageSizeState = state;
+      return performance.now() - state.lastChangeAt >= config.stableMs;
+    },
+    { timeout: timeoutMs },
+    {
+      rowSelector: 'tbody tr',
+      stableMs: 300,
+      targetLabel: pageSizeLabel,
+    }
+  );
+}
+
 async function waitForAssessmentQuestionsIndexTable(page, { logger, timeoutMs = 20000 } = {}) {
   const descriptor = prairieLearnSelectors.assessmentQuestionsIndex;
   logger.debug('Waiting for assessment questions table');
@@ -753,5 +970,7 @@ module.exports = {
   getPageSnapshot,
   indexQuestionsForCurrentAssessment,
   indexQuestionsForCourse,
+  extractQuestionsIndexFromEmbeddedData,
+  selectQuestionsIndexPageSize,
   waitForPageReady,
 };

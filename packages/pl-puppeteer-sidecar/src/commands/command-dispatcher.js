@@ -100,13 +100,13 @@ class CommandDispatcher {
           const courseNumber = rest ? Number(rest) : 1;
 
           if (!Number.isInteger(courseNumber) || courseNumber < 1) {
-            throw new Error('Usage: index-questions [courseNumber]');
+            throw new Error('Usage: index-questions [courseNumber=1]');
           }
 
           const result = await this.session.indexQuestions(courseNumber);
           return {
             continueRunning: true,
-            output: JSON.stringify(result, null, 2),
+            output: formatQuestionsIndexedSummary(result.count),
           };
         }
 
@@ -114,7 +114,7 @@ class CommandDispatcher {
           const result = await this.session.indexAssessmentQuestions();
           return {
             continueRunning: true,
-            output: JSON.stringify(result, null, 2),
+            output: formatQuestionsIndexedSummary(result.count),
           };
         }
 
@@ -189,6 +189,11 @@ function formatCommandOutput(prefix, result) {
   return lines.join('\n');
 }
 
+function formatQuestionsIndexedSummary(count) {
+  return `(${count} questions indexed.)`;
+}
+
 module.exports = {
   CommandDispatcher,
+  formatQuestionsIndexedSummary,
 };
