@@ -54,11 +54,15 @@ async function main(argv = process.argv.slice(2)) {
       }
 
       if (event.result.action === 'index-questions') {
-        terminal.write(`${event.heading}:\n${formatQuestionsIndexedSummary(event.result.count)}`);
+        terminal.write(`${event.heading}:\n${formatQuestionsIndexedSummary(event.result.count)}`, {
+          color: 'green',
+        });
         return;
       }
 
-      terminal.write(`${event.heading}:\n${JSON.stringify(event.result, null, 2)}`);
+      terminal.write(`${event.heading}:\n${JSON.stringify(event.result, null, 2)}`, {
+        color: 'green',
+      });
     });
 
     await service.start({

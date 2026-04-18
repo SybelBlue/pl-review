@@ -4,7 +4,7 @@ const readline = require('node:readline');
 const { mock } = require('node:test');
 const { createTerminalWriter } = require('../src/lib/terminal');
 
-test('terminal writer redraws the prompt after output', () => {
+test('terminal writer redraws the prompt after colored output', () => {
   const clearLineMock = mock.method(readline, 'clearLine', () => {});
   const cursorToMock = mock.method(readline, 'cursorTo', () => {});
 
@@ -18,9 +18,9 @@ test('terminal writer redraws the prompt after output', () => {
   };
 
   terminal.attachReadline(rl);
-  terminal.write('hello world');
+  terminal.write('hello world', { color: 'green' });
 
-  assert.deepEqual(output.writes, ['hello world\n']);
+  assert.deepEqual(output.writes, ['\x1b[32mhello world\n\x1b[0m']);
   assert.equal(clearLineMock.mock.callCount(), 1);
   assert.equal(cursorToMock.mock.callCount(), 1);
   assert.deepEqual(rl.promptCalls, [true]);

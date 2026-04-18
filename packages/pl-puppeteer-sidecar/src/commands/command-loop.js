@@ -57,7 +57,7 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal 
 
         if (result.output) {
           if (terminal) {
-            terminal.write(result.output);
+            terminal.write(result.output, { color: 'green' });
           } else {
             process.stdout.write(`${result.output}\n`);
           }
