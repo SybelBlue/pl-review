@@ -20,8 +20,33 @@ test('index-questions prints a summary instead of JSON', async () => {
   const result = await dispatcher.dispatch('index-questions 3');
 
   assert.equal(result.continueRunning, true);
-  assert.equal(result.output, '(42 questions indexed.)');
+  assert.equal(result.output, '42 questions indexed.');
   assert.equal(result.output.includes('JSON'), false);
+});
+
+test('index-questions without an argument delegates without forcing course 1', async () => {
+  let receivedCourseNumber = Symbol('unset');
+  const dispatcher = new CommandDispatcher({
+    logger: fakeLogger(),
+    session: {
+      async getStatus() {
+        return {
+          url: 'http://localhost:3000/pl/course/17/course_admin/questions',
+        };
+      },
+      async indexQuestions(courseNumber) {
+        receivedCourseNumber = courseNumber;
+        return {
+          count: 7,
+        };
+      },
+    },
+  });
+
+  const result = await dispatcher.dispatch('index-questions');
+
+  assert.equal(receivedCourseNumber, 17);
+  assert.equal(result.output, '7 questions indexed.');
 });
 
 function fakeLogger() {

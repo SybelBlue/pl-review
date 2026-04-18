@@ -5,6 +5,7 @@ const {
   getCourseQuestionsIndexMatch,
   getPageSnapshot,
   getAssessmentQuestionsOverviewMatch,
+  getCourseNumberFromUrl,
   indexQuestionsForCourse,
   indexQuestionsForCurrentAssessment,
   waitForPageReady,
@@ -211,12 +212,14 @@ class BrowserSession extends EventEmitter {
     };
   }
 
-  async indexQuestions(courseNumber = 1) {
+  async indexQuestions(courseNumber = null) {
     this.ensurePage();
-    this.logger.info(`Indexing PrairieLearn questions for course ${courseNumber}`);
+
+    const resolvedCourseNumber = this.resolveCourseNumber(courseNumber);
+    this.logger.info(`Indexing PrairieLearn questions for course ${resolvedCourseNumber}`);
 
     const result = await this.withAutoIndexSuppressed(() =>
-      indexQuestionsForCourse(this.page, Number(courseNumber), {
+      indexQuestionsForCourse(this.page, resolvedCourseNumber, {
         logger: this.logger,
         readySelectors: this.options.readySelectors,
       })
@@ -554,6 +557,21 @@ class BrowserSession extends EventEmitter {
     if (!this.page) {
       throw new Error('Browser page is not ready');
     }
+  }
+
+  resolveCourseNumber(courseNumber = null) {
+    if (courseNumber != null) {
+      const parsedCourseNumber = Number(courseNumber);
+
+      if (!Number.isInteger(parsedCourseNumber) || parsedCourseNumber < 1) {
+        throw new Error(`Invalid course number: ${courseNumber}`);
+      }
+
+      return parsedCourseNumber;
+    }
+
+    const inferredCourseNumber = getCourseNumberFromUrl(this.page?.url() || null);
+    return inferredCourseNumber || 1;
   }
 
   async withAutoIndexSuppressed(task) {

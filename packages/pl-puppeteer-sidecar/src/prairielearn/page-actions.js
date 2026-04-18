@@ -932,6 +932,22 @@ function getCourseQuestionsIndexMatch(urlString) {
   };
 }
 
+function getCourseNumberFromUrl(urlString) {
+  if (!urlString) {
+    return null;
+  }
+
+  const url = new URL(urlString);
+  const match = url.pathname.match(/\/pl\/course\/(?<courseNumber>\d+)(?:\/|$)/);
+
+  if (!match || !match.groups) {
+    return null;
+  }
+
+  const courseNumber = Number(match.groups.courseNumber);
+  return Number.isInteger(courseNumber) && courseNumber > 0 ? courseNumber : null;
+}
+
 async function goBackInPageHistory(page) {
   const beforeUrl = page.url();
 
@@ -967,6 +983,7 @@ module.exports = {
   followLoadFromDisk,
   getAssessmentQuestionsOverviewMatch,
   getCourseQuestionsIndexMatch,
+  getCourseNumberFromUrl,
   getPageSnapshot,
   indexQuestionsForCurrentAssessment,
   indexQuestionsForCourse,

@@ -1,3 +1,5 @@
+const { getCourseNumberFromUrl } = require("../prairielearn/page-actions");
+
 class CommandDispatcher {
   constructor({ session, logger }) {
     this.session = session;
@@ -97,10 +99,16 @@ class CommandDispatcher {
         }
 
         case 'index-questions': {
-          const courseNumber = rest ? Number(rest) : 1;
+          let courseNumber;
+          if (rest) {
+            courseNumber = Number(rest);
 
-          if (!Number.isInteger(courseNumber) || courseNumber < 1) {
-            throw new Error('Usage: index-questions [courseNumber]');
+            if (!Number.isInteger(courseNumber) || courseNumber < 1) {
+              throw new Error('Usage: index-questions [courseNumber]');
+            }
+          } else {
+            const status = await this.session.getStatus();
+            courseNumber = getCourseNumberFromUrl(status.url) || undefined;
           }
 
           const result = await this.session.indexQuestions(courseNumber);
@@ -190,7 +198,7 @@ function formatCommandOutput(prefix, result) {
 }
 
 function formatQuestionsIndexedSummary(count) {
-  return `(${count} questions indexed.)`;
+  return `${count} questions indexed.`;
 }
 
 module.exports = {
