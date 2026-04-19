@@ -320,13 +320,13 @@
   .gap-2 {
     gap: calc(var(--spacing) * 2);
   }
-  .overflow-auto {
-    overflow: auto;
-  }
   .truncate {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .overflow-auto {
+    overflow: auto;
   }
   .overflow-hidden {
     overflow: hidden;
@@ -849,8 +849,14 @@ summary {
   min-height: calc(var(--spacing) * 0);
   flex-grow: 1;
   gap: calc(var(--spacing) * 0);
+  --workspace-sidebar-column: minmax(240px, 2.3fr);
+  --workspace-viewer-column: minmax(0, 4.4fr);
+  --workspace-pdf-column: minmax(0, 5.3fr);
   height: 100%;
-  grid-template-columns: minmax(240px, 2.3fr) minmax(0, 4.4fr) minmax(0, 5.3fr);
+  grid-template-columns: var(--workspace-sidebar-column) var(--workspace-viewer-column) var(--workspace-pdf-column);
+}
+.workspace.is-pdf-empty {
+  grid-template-columns: var(--workspace-sidebar-column) var(--workspace-viewer-column) var(--workspace-sidebar-column);
 }
 .panel {
   position: relative;

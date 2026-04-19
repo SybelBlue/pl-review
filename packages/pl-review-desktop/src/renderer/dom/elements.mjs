@@ -1,5 +1,6 @@
 export function getElements(doc = document) {
   return {
+    workspace: doc.querySelector(".workspace"),
     choosePdfButton: doc.getElementById("choose-pdf-button"),
     restartPlButton: doc.getElementById("restart-pl-button"),
     stopPlButton: doc.getElementById("stop-pl-button"),

@@ -31,6 +31,7 @@ test("pdf DOM toggles overlay and updates iframe source when the current page ch
     });
 
     assert.equal(context.document.getElementById("pdf-overlay").hidden, false);
+    assert.equal(context.document.querySelector(".workspace").classList.contains("is-pdf-empty"), true);
     assert.equal(context.document.getElementById("pl-config-overlay").hidden, false);
     assert.equal(context.document.getElementById("prairielearn-view").style.visibility, "hidden");
 
@@ -38,6 +39,7 @@ test("pdf DOM toggles overlay and updates iframe source when the current page ch
     await settle();
 
     assert.equal(context.document.getElementById("pdf-overlay").hidden, true);
+    assert.equal(context.document.querySelector(".workspace").classList.contains("is-pdf-empty"), false);
     assert.equal(context.document.getElementById("pdf-frame").hidden, false);
     assert.match(context.document.getElementById("pdf-frame").src, /page=4/);
     assert.equal(context.document.getElementById("prairielearn-view").style.visibility, "hidden");
