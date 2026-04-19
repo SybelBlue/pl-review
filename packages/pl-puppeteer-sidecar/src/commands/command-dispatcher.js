@@ -1,3 +1,4 @@
+const fs = require('fs');
 const { getCourseNumberFromUrl } = require("../prairielearn/page-actions");
 
 class CommandDispatcher {
@@ -168,15 +169,15 @@ class CommandDispatcher {
 }
 
 function formatStatus(status) {
-  const lines = [
-    `Mode: ${status.connectedMode}`,
-    `URL: ${status.url}`,
-    `Title: ${status.title}`,
-  ];
+  const lines = [ ];
 
   if (status.currentQuestionQid) {
-    lines.push(`Current QID: ${status.currentQuestionQid}`);
-    lines.push(`Jump to: questions/${status.currentQuestionQid}/question.html`);
+    const path = `./questions/${status.currentQuestionQid}/question.html`
+    if (fs.existsSync(path)) {
+      lines.push(`Jump to: ${path}`);
+    } else {
+      lines.push(`Current QID: ${status.currentQuestionQid}`);
+    }
   }
 
   if (status.indexedQuestionSource) {

@@ -392,7 +392,7 @@ class BrowserSession extends EventEmitter {
       currentQuestionQid: this.currentQuestionQid,
       connectedMode: this.connectionMode || 'unknown',
       indexedQuestionCount: this.latestQuestionIndex ? this.latestQuestionIndex.questions.length : 0,
-      indexedQuestionSource: this.latestQuestionIndex ? this.latestQuestionIndex.action : null,
+      indexedQuestionSource: this.latestQuestionIndex ? this.latestQuestionIndex.source : null,
       title: snapshot.title,
       url: snapshot.url,
     };

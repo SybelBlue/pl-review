@@ -1,23 +1,28 @@
-const readline = require('node:readline');
+const readline = require("node:readline");
 
 const COMMANDS = [
-  'help',
-  'status',
-  'current',
-  'next',
-  'prev',
-  'reload',
-  'hard-reload',
-  'reload-disk',
-  'index-questions',
-  'index-assessment',
-  'goto',
-  'sync-refresh',
-  'quit',
-  'exit',
+  "help",
+  "status",
+  "current",
+  "next",
+  "prev",
+  "reload",
+  "hard-reload",
+  "reload-disk",
+  "index-questions",
+  "index-assessment",
+  "goto",
+  "sync-refresh",
+  "quit",
+  "exit",
 ];
 
-async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal = null }) {
+async function runCommandLoop({
+  dispatcher,
+  logger,
+  showPrompt = true,
+  terminal = null,
+}) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -50,47 +55,51 @@ async function runCommandLoop({ dispatcher, logger, showPrompt = true, terminal 
 
     let queue = Promise.resolve();
 
-    rl.on('line', (line) => {
+    rl.on("line", (line) => {
       if (terminal) {
-        terminal.writeRaw('\x1b[0m');
+        terminal.writeRaw("\x1b[0m");
       } else if (showPrompt && process.stdout.isTTY) {
-        process.stdout.write('\x1b[0m');
+        process.stdout.write("\x1b[0m");
       }
 
-      queue = queue.then(async () => {
-        const result = await dispatcher.dispatch(line);
-        const wroteOutput = Boolean(result.output);
+      queue = queue
+        .then(async () => {
+          const result = await dispatcher.dispatch(line);
+          const wroteOutput = Boolean(result.output);
 
-        if (result.output) {
-          if (terminal) {
-            terminal.write(` - | ${result.output}`, {
-              color: 'green',
-              redrawPrompt: result.continueRunning,
-            });
-          } else {
-            process.stdout.write(`${result.output}\n`);
+          if (result.output) {
+            if (terminal) {
+              `${result.output}`.split("\n").forEach((s, i) => {
+                terminal.write(` - | ${(i > 0 ? '  ' : '')}${s}`, {
+                  color: "green",
+                  redrawPrompt: result.continueRunning,
+                });
+              });
+            } else {
+              process.stdout.write(`${result.output}\n`);
+            }
           }
-        }
 
-        if (!result.continueRunning) {
-          closeLoop();
-          return;
-        }
+          if (!result.continueRunning) {
+            closeLoop();
+            return;
+          }
 
-        if (terminal && wroteOutput) {
-          return;
-        }
+          if (terminal && wroteOutput) {
+            return;
+          }
 
-        writePrompt();
-      }).catch((error) => {
-        logger.error('Unexpected command-loop failure', error);
-        if (!terminal) {
           writePrompt();
-        }
-      });
+        })
+        .catch((error) => {
+          logger.error("Unexpected command-loop failure", error);
+          if (!terminal) {
+            writePrompt();
+          }
+        });
     });
 
-    rl.on('close', () => {
+    rl.on("close", () => {
       if (terminal) {
         terminal.detachReadline();
       }
@@ -109,9 +118,9 @@ module.exports = {
 
 function createCommandCompleter(commands = COMMANDS) {
   return (line) => {
-    const trimmed = String(line || '').trimStart();
+    const trimmed = String(line || "").trimStart();
 
-    if (!trimmed || trimmed.includes(' ')) {
+    if (!trimmed || trimmed.includes(" ")) {
       return [[], line];
     }
 
@@ -123,5 +132,5 @@ function createCommandCompleter(commands = COMMANDS) {
 }
 
 function getPrompt() {
-  return '\x1b[34m > | ';
+  return "\x1b[34m > | ";
 }
