@@ -852,11 +852,15 @@ summary {
   --workspace-sidebar-column: minmax(240px, 2.3fr);
   --workspace-viewer-column: minmax(0, 4.4fr);
   --workspace-pdf-column: minmax(0, 5.3fr);
+  --workspace-pdf-collapsed-column: 34px;
   height: 100%;
   grid-template-columns: var(--workspace-sidebar-column) var(--workspace-viewer-column) var(--workspace-pdf-column);
 }
 .workspace.is-pdf-empty {
   grid-template-columns: var(--workspace-sidebar-column) var(--workspace-viewer-column) var(--workspace-sidebar-column);
+}
+.workspace.is-pdf-collapsed {
+  grid-template-columns: var(--workspace-sidebar-column) var(--workspace-viewer-column) var(--workspace-pdf-collapsed-column);
 }
 .panel {
   position: relative;
@@ -1561,6 +1565,36 @@ textarea {
   min-height: calc(var(--spacing) * 0);
   background: rgba(255, 255, 255, 0.78);
 }
+.pdf-column {
+  overflow: visible;
+}
+.pdf-pane-toggle-button {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 16px rgba(59, 42, 25, 0.14);
+}
+.pdf-pane-toggle-button svg {
+  fill: none;
+  stroke: currentcolor;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 140ms ease;
+}
+.workspace.is-pdf-collapsed .pdf-pane-toggle-button svg {
+  transform: rotate(180deg);
+}
+.pdf-column-body[hidden] {
+  display: none;
+}
 .pdf-overlay {
   position: absolute;
   inset: calc(var(--spacing) * 0);
@@ -1614,6 +1648,10 @@ textarea {
 }
 @media (max-width: 960px) {
   .workspace {
+    grid-template-columns: 1fr;
+  }
+  .workspace.is-pdf-empty,
+  .workspace.is-pdf-collapsed {
     grid-template-columns: 1fr;
   }
   .config-grid {

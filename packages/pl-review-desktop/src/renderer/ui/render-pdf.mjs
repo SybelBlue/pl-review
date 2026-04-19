@@ -1,6 +1,22 @@
-export function renderPdf({ elements, pdf, currentPdfPage, buildPdfUrl, setIndicatorState }) {
+export function renderPdf({
+  elements,
+  pdf,
+  currentPdfPage,
+  buildPdfUrl,
+  setIndicatorState,
+  isPdfPaneCollapsed
+}) {
   if (elements.workspace) {
     elements.workspace.classList.toggle("is-pdf-empty", !pdf);
+    elements.workspace.classList.toggle("is-pdf-collapsed", Boolean(isPdfPaneCollapsed));
+  }
+
+  if (elements.pdfPaneToggleButton) {
+    const collapsed = Boolean(isPdfPaneCollapsed);
+    const label = collapsed ? "Show PDF section" : "Collapse PDF section";
+    elements.pdfPaneToggleButton.title = label;
+    elements.pdfPaneToggleButton.setAttribute("aria-label", label);
+    elements.pdfPaneToggleButton.setAttribute("aria-expanded", collapsed ? "false" : "true");
   }
 
   if (!pdf) {
@@ -13,9 +29,15 @@ export function renderPdf({ elements, pdf, currentPdfPage, buildPdfUrl, setIndic
       elements.pdfName.title = "No file selected";
     }
     setIndicatorState(elements.pdfIndicator, "idle");
+    if (elements.pdfColumnBody) {
+      elements.pdfColumnBody.hidden = Boolean(isPdfPaneCollapsed);
+    }
     return;
   }
 
+  if (elements.pdfColumnBody) {
+    elements.pdfColumnBody.hidden = Boolean(isPdfPaneCollapsed);
+  }
   elements.pdfOverlay.hidden = true;
   elements.pdfFrame.hidden = false;
   elements.pdfDropZone.classList.remove("is-dragging");

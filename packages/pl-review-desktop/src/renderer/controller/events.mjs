@@ -168,6 +168,9 @@ export function bindEvents(app) {
     event.preventDefault();
   });
   elements.choosePdfButton.addEventListener("click", app.choosePdf);
+  if (elements.pdfPaneToggleButton) {
+    elements.pdfPaneToggleButton.addEventListener("click", app.togglePdfPane);
+  }
   if (elements.restartPlButton) {
     elements.restartPlButton.addEventListener("click", app.restartPrairieLearn);
   }

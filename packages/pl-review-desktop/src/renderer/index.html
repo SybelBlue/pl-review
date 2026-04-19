@@ -441,25 +441,39 @@
           </div>
         </section>
 
-        <section class="viewer-column panel flex flex-col gap-2 p-2 md:gap-3 md:p-3">
-          <div class="pane-header flex items-center justify-between gap-2">
-            <div>
-              <h1 class="eyebrow mb-0 font-semibold text-stone-500">Assessment PDF</h1>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button id="apply-page-button" class="button ui-btn ui-btn-outline-primary ui-btn-sm">Use For Question</button>
-            </div>
-          </div>
-          <div class="pane-frame relative mt-2 grow overflow-hidden rounded-2xl border border-stone-300/25">
-            <div id="pdf-overlay" class="pdf-overlay">
-              <div id="pdf-drop-zone" class="pdf-drop-zone text-center p-4 lg:p-5">
-                <h1 class="eyebrow mb-2 font-semibold text-stone-500">Assessment PDF</h1>
-                <h3 class="mb-2 text-xl font-semibold">Load A PDF To Start Review</h3>
-                <p class="mb-3 text-stone-500">Drop a single PDF here or choose one from disk.</p>
-                <button id="choose-pdf-button" class="button button-primary ui-btn ui-btn-primary px-4" type="button">Choose PDF</button>
+        <section class="viewer-column panel pdf-column relative flex flex-col gap-2 p-2 md:gap-3 md:p-3">
+          <button
+            id="pdf-pane-toggle-button"
+            class="pdf-pane-toggle-button button icon-button ui-btn ui-btn-secondary ui-btn-sm"
+            type="button"
+            aria-label="Collapse PDF section"
+            aria-expanded="true"
+            title="Collapse PDF section"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>
+          <div id="pdf-column-body" class="pdf-column-body flex min-h-0 grow flex-col gap-2 md:gap-3">
+            <div class="pane-header flex items-center justify-between gap-2">
+              <div>
+                <h1 class="eyebrow mb-0 font-semibold text-stone-500">Assessment PDF</h1>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button id="apply-page-button" class="button ui-btn ui-btn-outline-primary ui-btn-sm">Use For Question</button>
               </div>
             </div>
-            <iframe id="pdf-frame" class="h-full w-full border-0" title="Assessment PDF"></iframe>
+            <div class="pane-frame relative mt-2 grow overflow-hidden rounded-2xl border border-stone-300/25">
+              <div id="pdf-overlay" class="pdf-overlay">
+                <div id="pdf-drop-zone" class="pdf-drop-zone text-center p-4 lg:p-5">
+                  <h1 class="eyebrow mb-2 font-semibold text-stone-500">Assessment PDF</h1>
+                  <h3 class="mb-2 text-xl font-semibold">Load A PDF To Start Review</h3>
+                  <p class="mb-3 text-stone-500">Drop a single PDF here or choose one from disk.</p>
+                  <button id="choose-pdf-button" class="button button-primary ui-btn ui-btn-primary px-4" type="button">Choose PDF</button>
+                </div>
+              </div>
+              <iframe id="pdf-frame" class="h-full w-full border-0" title="Assessment PDF"></iframe>
+            </div>
           </div>
         </section>
       </main>

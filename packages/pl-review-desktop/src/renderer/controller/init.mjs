@@ -98,6 +98,7 @@ export async function init({
     pdf: null,
     session: null,
     currentPdfPage: 1,
+    isPdfPaneCollapsed: false,
     currentPrairieLearnUrl: "",
     currentPrairieLearnTitle: "",
     prairieLearnReady: false,
@@ -232,7 +233,8 @@ export async function init({
       pdf: state.pdf,
       currentPdfPage: state.currentPdfPage,
       buildPdfUrl: windowRef.reviewApi.buildPdfUrl,
-      setIndicatorState
+      setIndicatorState,
+      isPdfPaneCollapsed: state.isPdfPaneCollapsed
     });
   }
 
@@ -968,6 +970,11 @@ export async function init({
     saveSession();
   }
 
+  function togglePdfPane() {
+    state.isPdfPaneCollapsed = !state.isPdfPaneCollapsed;
+    renderPdfLocal();
+  }
+
   async function connectPrairieLearn(mode) {
     const hasPrerequisites = await ensureDockerPrerequisites();
     if (!hasPrerequisites) {
@@ -1260,6 +1267,7 @@ export async function init({
     deleteCurrentQuestion,
     moveBetweenQuestions,
     setPdfPage,
+    togglePdfPane,
     applyCurrentPageToQuestion,
     loadPdfSelection,
     getDroppedPdfSelection,
