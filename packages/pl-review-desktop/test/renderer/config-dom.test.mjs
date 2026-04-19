@@ -75,6 +75,13 @@ test("config DOM adds, removes, and reorders course rows while updating preview"
     inputs[1].dispatchEvent(new context.window.Event("input", { bubbles: true }));
     assert.match(context.document.getElementById("generated-command-preview").value, /\/course2/);
 
+    const excludeCheckboxes = context.document.querySelectorAll("[data-course-directory-exclude]");
+    excludeCheckboxes[1].checked = false;
+    excludeCheckboxes[1].dispatchEvent(new context.window.Event("change", { bubbles: true }));
+    assert.equal(context.document.querySelectorAll(".course-directory-mount")[1].textContent, "Excluded");
+    assert.match(context.document.getElementById("generated-command-preview").value, /-v '\/repo\/a':\/course/);
+    assert.doesNotMatch(context.document.getElementById("generated-command-preview").value, /\/repo\/b/);
+
     const rows = context.document.querySelectorAll(".course-directory-row");
     const dragStart = new context.window.Event("dragstart", { bubbles: true });
     Object.defineProperty(dragStart, "dataTransfer", { value: { effectAllowed: "" } });

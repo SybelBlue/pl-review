@@ -1,7 +1,7 @@
 import {
   MAX_COURSE_DIRECTORIES,
   getCommandModeFromForm,
-  getCourseDirectoriesFromConfig,
+  getCourseDirectoryEntriesFromConfig,
   getCourseDirectoriesFromForm,
   getStartButtonLabelForMode
 } from "../state/config-form.mjs";
@@ -157,6 +157,30 @@ export function updateCourseDirectoryInputState(input) {
   input.classList.toggle("is-empty", !String(input.value || "").trim());
 }
 
+export function updateCourseDirectoryMountLabels(elements) {
+  const rows = Array.from(elements.courseDirectoriesList?.querySelectorAll(".course-directory-row") || []);
+  let mountIndex = 0;
+
+  rows.forEach((row) => {
+    const mountNode = row.querySelector(".course-directory-mount");
+    const excludeInput = row.querySelector("[data-course-directory-exclude]");
+    const excluded = !Boolean(excludeInput?.checked);
+
+    row.classList.toggle("is-excluded", excluded);
+    if (!mountNode) {
+      return;
+    }
+
+    if (excluded) {
+      mountNode.textContent = "Excluded";
+      return;
+    }
+
+    mountNode.textContent = mountIndex === 0 ? "/course" : `/course${mountIndex + 1}`;
+    mountIndex += 1;
+  });
+}
+
 export function updateCommandEditorState({
   elements,
   state,
@@ -188,7 +212,7 @@ export function updateCommandEditorState({
   }
 
   elements.courseDirectoriesList
-    .querySelectorAll("[data-course-directory-input], [data-course-choose], [data-course-remove]")
+    .querySelectorAll("[data-course-directory-input], [data-course-directory-exclude], [data-course-choose], [data-course-remove]")
     .forEach((control) => {
       control.disabled =
         !connectionUnlocked ||
@@ -235,8 +259,8 @@ export function renderConfig({
     elements.autoLoadFromDiskOnConnectInput.checked = state.config.autoLoadFromDiskOnConnect !== false;
   }
 
-  const courseDirectories = getCourseDirectoriesFromConfig(state.config);
-  renderCourseDirectoryRows(courseDirectories.length > 0 ? courseDirectories : [""]);
+  const courseDirectoryEntries = getCourseDirectoryEntriesFromConfig(state.config);
+  renderCourseDirectoryRows(courseDirectoryEntries.length > 0 ? courseDirectoryEntries : [{ value: "", excluded: false }]);
   elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
 
   updateCommandEditorState(updateCommandEditorStateArgs);

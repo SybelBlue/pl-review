@@ -5,6 +5,8 @@ const DEFAULT_CONFIG = {
   commandMode: "structured",
   autoLoadFromDiskOnConnect: true,
   courseDirectory: "",
+  courseDirectories: [],
+  courseDirectoryExclusions: [],
   reviewManifestPath: "questions/review/_transpile_manifest.json",
   reviewSourceType: "sidecar",
   reviewSequenceId: "",
@@ -80,7 +82,11 @@ function normalizeConfig(config = {}) {
       : ["structured", "custom", "reconnect"].includes(config.commandMode)
         ? config.commandMode
         : DEFAULT_CONFIG.commandMode,
-    customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || ""
+    customStartCommand: hasLegacyStartCommand ? config.startCommand : config.customStartCommand || "",
+    courseDirectories: Array.isArray(config.courseDirectories) ? config.courseDirectories : DEFAULT_CONFIG.courseDirectories,
+    courseDirectoryExclusions: Array.isArray(config.courseDirectoryExclusions)
+      ? config.courseDirectoryExclusions.map(Boolean)
+      : DEFAULT_CONFIG.courseDirectoryExclusions
   };
 }
 

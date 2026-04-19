@@ -44,6 +44,7 @@ export async function createRendererTestContext(overrides = {}) {
       autoLoadFromDiskOnConnect: true,
       courseDirectory: "",
       courseDirectories: ["/repo/course-a"],
+      courseDirectoryExclusions: [false],
       jobsDirectory: "/tmp/jobs",
       customStartCommand: "",
       startCommand: ""

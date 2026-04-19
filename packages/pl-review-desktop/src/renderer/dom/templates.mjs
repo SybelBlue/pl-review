@@ -17,7 +17,7 @@ export function createQuestionItemNode(template, { question, index, isActive, on
   return node;
 }
 
-export function createCourseDirectoryRow(template, { value = "", index = 0, total = 1 }, handlers = {}) {
+export function createCourseDirectoryRow(template, { value = "", index = 0, total = 1, excluded = false }, handlers = {}) {
   const row = template.content.firstElementChild.cloneNode(true);
   const mountLabel = index === 0 ? "/course" : `/course${index + 1}`;
   row.dataset.courseRowIndex = String(index);
@@ -25,15 +25,25 @@ export function createCourseDirectoryRow(template, { value = "", index = 0, tota
 
   const mountNode = row.querySelector(".course-directory-mount");
   const input = row.querySelector("[data-course-directory-input]");
+  const excludeInput = row.querySelector("[data-course-directory-exclude]");
   const chooseButton = row.querySelector("[data-course-choose]");
   const removeButton = row.querySelector("[data-course-remove]");
 
-  mountNode.textContent = mountLabel;
+  mountNode.textContent = excluded ? "Excluded" : mountLabel;
   input.value = value || "";
+  if (excludeInput) {
+    excludeInput.checked = !excluded;
+  }
+  row.classList.toggle("is-excluded", excluded);
   removeButton.disabled = total <= 1;
 
   if (handlers.onInput) {
     input.addEventListener("input", () => handlers.onInput({ row, input, chooseButton, removeButton }));
+  }
+  if (handlers.onExcludeChange && excludeInput) {
+    excludeInput.addEventListener("change", () =>
+      handlers.onExcludeChange({ row, input, chooseButton, removeButton, excludeInput })
+    );
   }
   if (handlers.onChoose) {
     chooseButton.addEventListener("click", () => handlers.onChoose({ row, input, chooseButton, removeButton }));

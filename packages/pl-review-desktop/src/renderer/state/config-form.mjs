@@ -28,35 +28,58 @@ export function normalizeCourseDirectories(input) {
     .slice(0, MAX_COURSE_DIRECTORIES);
 }
 
-export function getCourseDirectoriesFromConfig(config) {
+export function getCourseDirectoryEntriesFromConfig(config) {
   const directories = normalizeCourseDirectories(config?.courseDirectories);
-  if (directories.length > 0) {
-    return directories;
+  const exclusions = Array.isArray(config?.courseDirectoryExclusions) ? config.courseDirectoryExclusions.map(Boolean) : [];
+
+  return directories.map((directory, index) => ({
+    directory,
+    excluded: Boolean(exclusions[index])
+  }));
+}
+
+export function getCourseDirectoriesFromConfig(config) {
+  const entries = getCourseDirectoryEntriesFromConfig(config);
+  if (entries.length > 0) {
+    return entries.map((entry) => entry.directory);
   }
 
   const legacyCourseDirectory = String(config?.courseDirectory || "").trim();
   return legacyCourseDirectory ? [legacyCourseDirectory] : [];
 }
 
+export function getCourseDirectoryEntriesFromForm(elements) {
+  return Array.from(elements.courseDirectoriesList?.querySelectorAll(".course-directory-row") || []).map((row) => {
+    const input = row.querySelector("[data-course-directory-input]");
+    const excludeInput = row.querySelector("[data-course-directory-exclude]");
+
+    return {
+      directory: String(input?.value || "").trim(),
+      excluded: !Boolean(excludeInput?.checked)
+    };
+  });
+}
+
 export function getCourseDirectoriesFromForm(elements) {
-  return normalizeCourseDirectories(
-    Array.from(elements.courseDirectoriesList?.querySelectorAll("[data-course-directory-input]") || []).map(
-      (entry) => entry.value
-    )
-  );
+  return getCourseDirectoryEntriesFromForm(elements)
+    .filter((entry) => entry.directory && !entry.excluded)
+    .map((entry) => entry.directory)
+    .slice(0, MAX_COURSE_DIRECTORIES);
 }
 
 export function getConfigFromForm({ elements, state, buildStructuredCommand }) {
   const commandMode = getCommandModeFromForm(elements);
-  const courseDirectories = getCourseDirectoriesFromForm(elements);
-  const courseDirectory = courseDirectories[0] || "";
+  const courseDirectoryEntries = getCourseDirectoryEntriesFromForm(elements).filter((entry) => entry.directory);
+  const courseDirectories = courseDirectoryEntries.map((entry) => entry.directory);
+  const courseDirectoryExclusions = courseDirectoryEntries.map((entry) => entry.excluded);
+  const courseDirectory = courseDirectoryEntries.find((entry) => !entry.excluded)?.directory || "";
   const jobsDirectory = String(state.config.jobsDirectory || "").trim();
   const customStartCommand = elements.startCommandInput.value.trim();
   const startCommand =
     commandMode === "custom"
       ? customStartCommand
       : commandMode === "structured"
-        ? buildStructuredCommand({ courseDirectories, jobsDirectory })
+        ? buildStructuredCommand({ courseDirectories, courseDirectoryExclusions, jobsDirectory })
         : "";
 
   return {
@@ -66,6 +89,7 @@ export function getConfigFromForm({ elements, state, buildStructuredCommand }) {
     autoLoadFromDiskOnConnect: elements.autoLoadFromDiskOnConnectInput?.checked !== false,
     courseDirectory,
     courseDirectories,
+    courseDirectoryExclusions,
     jobsDirectory,
     customStartCommand,
     startCommand

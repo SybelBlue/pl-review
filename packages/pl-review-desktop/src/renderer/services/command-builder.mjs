@@ -1,20 +1,20 @@
-import { getCourseDirectoriesFromConfig } from "../state/config-form.mjs";
+import { getCourseDirectoryEntriesFromConfig } from "../state/config-form.mjs";
 
 export function shellQuote(value) {
   return `'${String(value || "").replace(/'/g, `'\\''`)}'`;
 }
 
 export function buildStructuredCommandParts(config) {
-  const courseDirectories = getCourseDirectoriesFromConfig(config);
+  const courseDirectories = getCourseDirectoryEntriesFromConfig(config).filter((entry) => entry.directory && !entry.excluded);
   const jobsDirectory = String(config?.jobsDirectory || "").trim();
   if (courseDirectories.length === 0) {
     return [];
   }
 
   const jobsDirectoryValue = jobsDirectory || "<auto-temp-pl_ag_jobs>";
-  const courseMountParts = courseDirectories.map((directory, index) => {
+  const courseMountParts = courseDirectories.map((entry, index) => {
     const mountPath = index === 0 ? "/course" : `/course${index + 1}`;
-    return `-v ${shellQuote(directory)}:${mountPath}`;
+    return `-v ${shellQuote(entry.directory)}:${mountPath}`;
   });
 
   return [

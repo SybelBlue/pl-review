@@ -14,6 +14,18 @@ test("command-builder quotes paths and builds multi-course structured commands",
   assert.match(parts.join(" "), /HOST_JOBS_DIR/);
 });
 
+test("command-builder skips excluded course directories", () => {
+  const parts = buildStructuredCommandParts({
+    courseDirectories: ["/repo/course-a", "/repo/course-b"],
+    courseDirectoryExclusions: [false, true],
+    jobsDirectory: "/tmp/jobs"
+  });
+
+  assert.match(parts.join(" "), /\/course/);
+  assert.doesNotMatch(parts.join(" "), /\/course2/);
+  assert.doesNotMatch(parts.join(" "), /course-b/);
+});
+
 test("command-builder formats preview and structured command text", () => {
   const command = buildStructuredCommand({
     courseDirectories: ["/repo/course-a"],

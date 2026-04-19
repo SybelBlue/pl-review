@@ -13,6 +13,16 @@ test("config-store normalizes legacy config into custom mode", () => {
   assert.equal(normalized.autoLoadFromDiskOnConnect, true);
 });
 
+test("config-store preserves course directory exclusions", () => {
+  const normalized = normalizeConfig({
+    courseDirectories: ["/repo/course-a"],
+    courseDirectoryExclusions: [1]
+  });
+
+  assert.deepEqual(normalized.courseDirectories, ["/repo/course-a"]);
+  assert.deepEqual(normalized.courseDirectoryExclusions, [true]);
+});
+
 test("config-store reads defaults and writes normalized config", async () => {
   const writes = [];
   const store = createConfigStore({

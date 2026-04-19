@@ -14,8 +14,7 @@ import {
 } from "../state/questions.mjs";
 import {
   MAX_COURSE_DIRECTORIES,
-  getConfigFromForm,
-  getCourseDirectoriesFromForm
+  getConfigFromForm
 } from "../state/config-form.mjs";
 import { buildStructuredCommand } from "../services/command-builder.mjs";
 import { formatDockerLogHtml } from "../services/docker-log-format.mjs";
@@ -28,7 +27,8 @@ import {
   setIndicatorState,
   syncConfigStepOpenState,
   updateCommandEditorState,
-  updateCourseDirectoryInputState
+  updateCourseDirectoryInputState,
+  updateCourseDirectoryMountLabels
 } from "../ui/render-config.mjs";
 import { renderPdf } from "../ui/render-pdf.mjs";
 import {
@@ -77,6 +77,7 @@ export async function init({
       autoLoadFromDiskOnConnect: true,
       courseDirectory: "",
       courseDirectories: [],
+      courseDirectoryExclusions: [],
       reviewManifestPath: "questions/review/_transpile_manifest.json",
       reviewSourceType: "sidecar",
       reviewSequenceId: "",
@@ -776,14 +777,26 @@ export async function init({
   }
 
   function renderCourseDirectoryRows(values = [""]) {
-    const normalized = values.slice(0, MAX_COURSE_DIRECTORIES);
-    const safeValues = normalized.length > 0 ? normalized : [""];
+    const normalized = values.slice(0, MAX_COURSE_DIRECTORIES).map((entry) => {
+      if (entry && typeof entry === "object") {
+        return {
+          value: String(entry.value || "").trim(),
+          excluded: Boolean(entry.excluded)
+        };
+      }
+
+      return {
+        value: String(entry || "").trim(),
+        excluded: false
+      };
+    });
+    const safeValues = normalized.length > 0 ? normalized : [{ value: "", excluded: false }];
     elements.courseDirectoriesList.innerHTML = "";
 
-    safeValues.forEach((value, index) => {
+    safeValues.forEach((entry, index) => {
       const row = createCourseDirectoryRow(
         elements.courseDirectoryRowTemplate,
-        { value, index, total: safeValues.length },
+        { value: entry.value, index, total: safeValues.length, excluded: entry.excluded },
         {
           onInput: ({ input }) => {
             updateCourseDirectoryInputState(input);
@@ -805,8 +818,15 @@ export async function init({
             const rows = Array.from(elements.courseDirectoriesList.querySelectorAll(".course-directory-row"));
             const nextValues = rows
               .filter((entry) => entry !== currentRow)
-              .map((entry) => entry.querySelector("[data-course-directory-input]").value);
+              .map((entry) => ({
+                value: entry.querySelector("[data-course-directory-input]").value,
+                excluded: !Boolean(entry.querySelector("[data-course-directory-exclude]")?.checked)
+              }));
             renderCourseDirectoryRows(nextValues.length ? nextValues : [""]);
+            updateCommandEditorStateLocal();
+          },
+          onExcludeChange: () => {
+            updateCourseDirectoryMountLabels(elements);
             updateCommandEditorStateLocal();
           },
           onDragStart: ({ event, row: currentRow }) => {
@@ -839,9 +859,12 @@ export async function init({
               return;
             }
 
-            const nextValues = Array.from(
-              elements.courseDirectoriesList.querySelectorAll("[data-course-directory-input]")
-            ).map((entry) => entry.value);
+            const nextValues = Array.from(elements.courseDirectoriesList.querySelectorAll(".course-directory-row")).map(
+              (entry) => ({
+                value: entry.querySelector("[data-course-directory-input]").value,
+                excluded: !Boolean(entry.querySelector("[data-course-directory-exclude]")?.checked)
+              })
+            );
             const [moved] = nextValues.splice(draggedCourseRowIndex, 1);
             nextValues.splice(targetIndex, 0, moved);
             renderCourseDirectoryRows(nextValues);
@@ -853,6 +876,7 @@ export async function init({
       updateCourseDirectoryInputState(row.querySelector("[data-course-directory-input]"));
       elements.courseDirectoriesList.append(row);
     });
+    updateCourseDirectoryMountLabels(elements);
   }
 
   function loadPrairieLearn(url) {

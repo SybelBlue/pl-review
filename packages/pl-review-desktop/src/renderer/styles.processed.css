@@ -671,10 +671,16 @@
     align-items: center;
     gap: calc(var(--spacing) * 2);
     padding: calc(var(--spacing) * 2);
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
   }
   .course-directory-row + .course-directory-row {
     border-top: 1px solid rgba(120, 104, 90, 0.22);
+  }
+  .course-directory-row.is-excluded {
+    opacity: 70%;
+  }
+  .course-directory-row.is-excluded .course-directory-mount {
+    text-decoration-line: line-through;
   }
   .course-directory-row.is-dragging {
     opacity: 0.55;
