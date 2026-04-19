@@ -211,8 +211,8 @@ export function bindEvents(app) {
     elements.saveConfigButton.addEventListener("click", app.saveConfig);
   }
   elements.startConfiguredButton.addEventListener("click", async () => {
-    await app.saveConfig();
-    await app.startPrairieLearn();
+    const savedConfig = await app.saveConfig({ render: false });
+    await app.startPrairieLearn(savedConfig || undefined);
   });
 
   if (elements.checkDockerInstalledButton) {

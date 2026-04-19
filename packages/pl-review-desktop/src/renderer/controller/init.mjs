@@ -999,18 +999,20 @@ export async function init({
     renderPdfLocal();
   }
 
-  async function connectPrairieLearn(mode) {
+  async function connectPrairieLearn(mode, configOverride = null) {
     const hasPrerequisites = await ensureDockerPrerequisites();
     if (!hasPrerequisites) {
       setPrairieLearnStatusLocal("Complete Docker setup checks first.", "error");
       return;
     }
 
-    state.config = getConfigFromForm({
-      elements,
-      state,
-      buildStructuredCommand
-    });
+    state.config =
+      configOverride ||
+      getConfigFromForm({
+        elements,
+        state,
+        buildStructuredCommand
+      });
     state.config = await ensureStructuredJobsDirectory(state.config);
 
     const title = mode === "reconnect" ? plStatusText.reconnecting : plStatusText.starting;
@@ -1055,19 +1057,19 @@ export async function init({
     }
   }
 
-  async function startPrairieLearn() {
+  async function startPrairieLearn(configOverride = null) {
     const mode = elements.commandModeReconnect.checked ? "reconnect" : "start";
-    await connectPrairieLearn(mode);
+    await connectPrairieLearn(mode, configOverride);
   }
 
-  async function restartPrairieLearn() {
+  async function restartPrairieLearn(configOverride = null) {
     const mode = elements.commandModeReconnect.checked ? "reconnect" : "restart";
-    await connectPrairieLearn(mode);
+    await connectPrairieLearn(mode, configOverride);
   }
 
-  async function saveConfig() {
+  async function saveConfig({ render = true } = {}) {
     if (isPrairieLearnCommandRunning) {
-      return;
+      return null;
     }
 
     state.config = getConfigFromForm({
@@ -1077,8 +1079,11 @@ export async function init({
     });
     state.config = await ensureStructuredJobsDirectory(state.config);
     state.config = await windowRef.reviewApi.saveConfig(state.config);
-    renderConfigLocal();
+    if (render) {
+      renderConfigLocal();
+    }
     setPrairieLearnStatusLocal(plStatusText.connectionSaved, state.prairieLearnReady ? "ready" : "idle");
+    return state.config;
   }
 
   async function choosePdf() {

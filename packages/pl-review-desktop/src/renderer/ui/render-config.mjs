@@ -260,7 +260,14 @@ export function renderConfig({
   }
 
   const courseDirectoryEntries = getCourseDirectoryEntriesFromConfig(state.config);
-  renderCourseDirectoryRows(courseDirectoryEntries.length > 0 ? courseDirectoryEntries : [{ value: "", excluded: false }]);
+  renderCourseDirectoryRows(
+    courseDirectoryEntries.length > 0
+      ? courseDirectoryEntries.map((entry) => ({
+          value: entry.directory,
+          excluded: entry.excluded
+        }))
+      : [{ value: "", excluded: false }]
+  );
   elements.startCommandInput.value = state.config.customStartCommand || state.config.startCommand || "";
 
   updateCommandEditorState(updateCommandEditorStateArgs);

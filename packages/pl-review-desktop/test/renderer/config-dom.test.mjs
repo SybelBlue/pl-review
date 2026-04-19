@@ -100,3 +100,47 @@ test("config DOM adds, removes, and reorders course rows while updating preview"
     context.cleanup();
   }
 });
+
+test("config DOM preserves edited rows when save and start are pressed together", async () => {
+  let capturedConfig = null;
+  const context = await createRendererTestContext({
+    reviewApi: {
+      startPrairieLearn: async (config) => {
+        capturedConfig = config;
+        return { ok: false, error: "not started", config };
+      }
+    }
+  });
+
+  try {
+    await init({
+      documentRef: context.document,
+      windowRef: context.window,
+      localStorageRef: context.localStorage,
+      cryptoRef: { randomUUID: () => "uuid-1" }
+    });
+    await settle();
+
+    context.document.getElementById("add-course-directory-button").click();
+    const inputs = context.document.querySelectorAll("[data-course-directory-input]");
+    inputs[0].value = "/repo/a";
+    inputs[0].dispatchEvent(new context.window.Event("input", { bubbles: true }));
+    inputs[1].value = "/repo/b";
+    inputs[1].dispatchEvent(new context.window.Event("input", { bubbles: true }));
+
+    const excludeCheckboxes = context.document.querySelectorAll("[data-course-directory-exclude]");
+    excludeCheckboxes[1].checked = false;
+    excludeCheckboxes[1].dispatchEvent(new context.window.Event("change", { bubbles: true }));
+
+    context.document.getElementById("start-configured-button").click();
+    await settle();
+
+    assert.deepEqual(capturedConfig.courseDirectories, ["/repo/a", "/repo/b"]);
+    assert.deepEqual(capturedConfig.courseDirectoryExclusions, [false, true]);
+    assert.equal(context.document.querySelectorAll(".course-directory-row").length, 2);
+    assert.equal(context.document.querySelectorAll("[data-course-directory-input]")[0].value, "/repo/a");
+    assert.equal(context.document.querySelectorAll("[data-course-directory-input]")[1].value, "/repo/b");
+  } finally {
+    context.cleanup();
+  }
+});
