@@ -272,6 +272,9 @@
   .w-full {
     width: 100%;
   }
+  .max-w-\[24rem\] {
+    max-width: 24rem;
+  }
   .grow {
     flex-grow: 1;
   }
@@ -295,6 +298,11 @@
   }
   .gap-2 {
     gap: calc(var(--spacing) * 2);
+  }
+  .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .overflow-hidden {
     overflow: hidden;

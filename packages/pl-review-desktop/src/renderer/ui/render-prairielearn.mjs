@@ -16,28 +16,33 @@ export function summarizeUrlForHint(url) {
 
 export function setCurrentUrl({ elements, state, url }) {
   state.currentPrairieLearnUrl = url || "";
+  if (!elements.currentUrl) {
+    return;
+  }
+
   elements.currentUrl.textContent = summarizeUrlForHint(url);
   elements.currentUrl.title = url || "No PrairieLearn page loaded.";
   elements.currentUrl.classList.toggle("is-active", Boolean(url));
 }
 
 export function isPrairieLearnWaitingForConfiguration({ state }) {
-  return !state.prairieLearnReady && !state.currentPrairieLearnUrl;
+  return !state.prairieLearnReady;
 }
 
 export function updateWebviewNavigationButtons(elements) {
-  elements.webviewBackButton.disabled = !elements.webview.canGoBack();
-  elements.webviewForwardButton.disabled = !elements.webview.canGoForward();
+  const blocked = elements.webview.hidden;
+  elements.webviewBackButton.disabled = blocked || !elements.webview.canGoBack();
+  elements.webviewForwardButton.disabled = blocked || !elements.webview.canGoForward();
+  elements.webviewReloadButton.disabled = blocked;
 }
 
 export function setConfigOverlayOpen({ elements, state, isOpen }) {
-  state.isConfigOverlayOpen = isOpen;
-  elements.plConfigOverlay.hidden = !isOpen;
+  state.isConfigOverlayOpen = Boolean(isOpen);
   renderPrairieLearnSurface({ elements, state });
 }
 
 export function collapseConnectionPanelOnSuccessfulPlUrl({ elements, state, url }) {
-  if (!url || !state.prairieLearnReady) {
+  if (!url || url === "about:blank") {
     return;
   }
 
@@ -54,15 +59,43 @@ export function collapseConnectionPanelOnSuccessfulPlUrl({ elements, state, url 
 
 export function setPrairieLearnStatus({ elements, state, message, level = "idle" }) {
   state.prairieLearnStatusLevel = level;
-  elements.plStatus.textContent = message;
-  setIndicatorState(elements.plIndicator, level);
+  if (elements.plStatus) {
+    elements.plStatus.textContent = message;
+  }
+  if (elements.plIndicator) {
+    setIndicatorState(elements.plIndicator, level);
+  }
 }
 
 export function renderPrairieLearnSurface({ elements, state }) {
-  const showOverlay = state.isConfigOverlayOpen;
   const forcedOverlay = isPrairieLearnWaitingForConfiguration({ state });
+  const showOverlay = forcedOverlay || state.isConfigOverlayOpen;
 
-  elements.plConfigOverlay.hidden = !(showOverlay || forcedOverlay);
-  elements.plStatusToggle.classList.toggle("is-disabled", forcedOverlay);
-  elements.plStatusToggle.classList.toggle("is-active", showOverlay);
+  if (elements.plConfigOverlay) {
+    elements.plConfigOverlay.hidden = !showOverlay;
+  }
+  if (elements.webview) {
+    elements.webview.hidden = showOverlay;
+    elements.webview.setAttribute("aria-hidden", showOverlay ? "true" : "false");
+    elements.webview.tabIndex = showOverlay ? -1 : 0;
+  }
+  if (elements.openBrowserButton) {
+    elements.openBrowserButton.disabled = forcedOverlay;
+  }
+  if (elements.plStatusToggle) {
+    const connectionLabel = forcedOverlay
+      ? "Connection required"
+      : showOverlay
+        ? "Hide connection panel"
+        : "Show connection panel";
+
+    elements.plStatusToggle.title = connectionLabel;
+    elements.plStatusToggle.setAttribute("aria-label", connectionLabel);
+    elements.plStatusToggle.setAttribute("aria-pressed", showOverlay ? "true" : "false");
+    elements.plStatusToggle.setAttribute("aria-disabled", forcedOverlay ? "true" : "false");
+    elements.plStatusToggle.classList.toggle("is-disabled", forcedOverlay);
+    elements.plStatusToggle.classList.toggle("is-active", showOverlay);
+  }
+
+  updateWebviewNavigationButtons(elements);
 }

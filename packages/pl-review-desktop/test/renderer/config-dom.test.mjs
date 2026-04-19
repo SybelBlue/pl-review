@@ -37,6 +37,25 @@ test("config DOM unlocks editors and switches command modes", async () => {
   }
 });
 
+test("config DOM still initializes if the current-url label is missing", async () => {
+  const context = await createRendererTestContext();
+  try {
+    context.document.getElementById("current-url").remove();
+
+    await init({
+      documentRef: context.document,
+      windowRef: context.window,
+      localStorageRef: context.localStorage,
+      cryptoRef: { randomUUID: () => "uuid-1" }
+    });
+    await settle();
+
+    assert.equal(context.document.getElementById("pl-config-overlay").hidden, false);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("config DOM adds, removes, and reorders course rows while updating preview", async () => {
   const context = await createRendererTestContext();
   try {
